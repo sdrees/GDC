@@ -69,8 +69,8 @@
     ))
 
     Copyright: Copyright 2010 - 2012
-    License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
-    Authors:   Jonathan M Davis and Kato Shoichi
+    License:   $(HTTP www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
+    Authors:   $(HTTP jmdavisprog.com, Jonathan M Davis) and Kato Shoichi
     Source:    $(DRUNTIMESRC core/_time.d)
     Macros:
     NBSP=&nbsp;
@@ -83,11 +83,11 @@ import core.stdc.stdio;
 import core.internal.traits : _Unqual = Unqual;
 import core.internal.string;
 
-version(Windows)
+version (Windows)
 {
 import core.sys.windows.windows;
 }
-else version(Posix)
+else version (Posix)
 {
 import core.sys.posix.time;
 import core.sys.posix.sys.time;
@@ -104,7 +104,7 @@ else version (WatchOS)
 
 //This probably should be moved somewhere else in druntime which
 //is Darwin-specific.
-version(Darwin)
+version (Darwin)
 {
 
 public import core.sys.darwin.mach.kern_return;
@@ -129,7 +129,7 @@ ulong mach_absolute_time();
 }
 
 //To verify that an lvalue isn't required.
-version(unittest) private T copy(T)(T t)
+version (unittest) private T copy(T)(T t)
 {
     return t;
 }
@@ -156,7 +156,7 @@ version(unittest) private T copy(T)(T t)
     $(D ClockType.second) only works with $(D Clock.currTime). The others only
     work with $(LREF MonoTimeImpl).
   +/
-version(CoreDdoc) enum ClockType
+version (CoreDdoc) enum ClockType
 {
     /++
         Use the normal clock.
@@ -195,7 +195,7 @@ version(CoreDdoc) enum ClockType
         extremely frequently (e.g. hundreds of thousands of times a second) but
         don't care about high precision, the coarse clock might be appropriate.
 
-        Currently, only Linux and FreeBSD support a coarser clock, and on other
+        Currently, only Linux and FreeBSD/DragonFlyBSD support a coarser clock, and on other
         platforms, it's treated as $(D ClockType.normal).
       +/
     coarse = 2,
@@ -207,7 +207,7 @@ version(CoreDdoc) enum ClockType
         more precise clock than the normal one, it's treated as equivalent to
         $(D ClockType.normal).
 
-        Currently, only FreeBSD supports a more precise clock, where it uses
+        Currently, only FreeBSD/DragonFlyBSD supports a more precise clock, where it uses
         $(D CLOCK_MONOTONIC_PRECISE) for the monotonic time and
         $(D CLOCK_REALTIME_PRECISE) for the wall clock time.
       +/
@@ -231,7 +231,7 @@ version(CoreDdoc) enum ClockType
         Uses a clock that has a precision of one second (contrast to the coarse
         clock, which has sub-second precision like the normal clock does).
 
-        FreeBSD is the only system which specifically has a clock set up for
+        FreeBSD/DragonFlyBSD are the only systems which specifically have a clock set up for
         this (it has $(D CLOCK_SECOND) to use with $(D clock_gettime) which
         takes advantage of an in-kernel cached value), but on other systems, the
         fastest function available will be used, and the resulting $(D SysTime)
@@ -278,21 +278,21 @@ version(CoreDdoc) enum ClockType
       +/
     uptimePrecise = 10,
 }
-else version(Windows) enum ClockType
+else version (Windows) enum ClockType
 {
     normal = 0,
     coarse = 2,
     precise = 3,
     second = 6,
 }
-else version(Darwin) enum ClockType
+else version (Darwin) enum ClockType
 {
     normal = 0,
     coarse = 2,
     precise = 3,
     second = 6,
 }
-else version(linux) enum ClockType
+else version (linux) enum ClockType
 {
     normal = 0,
     bootTime = 1,
@@ -303,7 +303,7 @@ else version(linux) enum ClockType
     second = 6,
     threadCPUTime = 7,
 }
-else version(FreeBSD) enum ClockType
+else version (FreeBSD) enum ClockType
 {
     normal = 0,
     coarse = 2,
@@ -313,14 +313,24 @@ else version(FreeBSD) enum ClockType
     uptimeCoarse = 9,
     uptimePrecise = 10,
 }
-else version(NetBSD) enum ClockType
+else version (NetBSD) enum ClockType
 {
     normal = 0,
     coarse = 2,
     precise = 3,
     second = 6,
 }
-else version(Solaris) enum ClockType
+else version (DragonFlyBSD) enum ClockType
+{
+    normal = 0,
+    coarse = 2,
+    precise = 3,
+    second = 6,
+    uptime = 8,
+    uptimeCoarse = 9,
+    uptimePrecise = 10,
+}
+else version (Solaris) enum ClockType
 {
     normal = 0,
     coarse = 2,
@@ -339,17 +349,17 @@ else
 
 // private, used to translate clock type to proper argument to clock_xxx
 // functions on posix systems
-version(CoreDdoc)
+version (CoreDdoc)
     private int _posixClock(ClockType clockType) { return 0; }
 else
-version(Posix)
+version (Posix)
 {
     private auto _posixClock(ClockType clockType)
     {
-        version(linux)
+        version (linux)
         {
             import core.sys.linux.time;
-            with(ClockType) final switch(clockType)
+            with(ClockType) final switch (clockType)
             {
             case bootTime: return CLOCK_BOOTTIME;
             case coarse: return CLOCK_MONOTONIC_COARSE;
@@ -361,10 +371,10 @@ version(Posix)
             case second: assert(0);
             }
         }
-        else version(FreeBSD)
+        else version (FreeBSD)
         {
             import core.sys.freebsd.time;
-            with(ClockType) final switch(clockType)
+            with(ClockType) final switch (clockType)
             {
             case coarse: return CLOCK_MONOTONIC_FAST;
             case normal: return CLOCK_MONOTONIC;
@@ -375,10 +385,10 @@ version(Posix)
             case second: assert(0);
             }
         }
-        else version(NetBSD)
+        else version (NetBSD)
         {
             import core.sys.netbsd.time;
-            with(ClockType) final switch(clockType)
+            with(ClockType) final switch (clockType)
             {
             case coarse: return CLOCK_MONOTONIC;
             case normal: return CLOCK_MONOTONIC;
@@ -386,10 +396,24 @@ version(Posix)
             case second: assert(0);
             }
         }
-        else version(Solaris)
+        else version (DragonFlyBSD)
+        {
+            import core.sys.dragonflybsd.time;
+            with(ClockType) final switch (clockType)
+            {
+            case coarse: return CLOCK_MONOTONIC_FAST;
+            case normal: return CLOCK_MONOTONIC;
+            case precise: return CLOCK_MONOTONIC_PRECISE;
+            case uptime: return CLOCK_UPTIME;
+            case uptimeCoarse: return CLOCK_UPTIME_FAST;
+            case uptimePrecise: return CLOCK_UPTIME_PRECISE;
+            case second: assert(0);
+            }
+        }
+        else version (Solaris)
         {
             import core.sys.solaris.time;
-            with(ClockType) final switch(clockType)
+            with(ClockType) final switch (clockType)
             {
             case coarse: return CLOCK_MONOTONIC;
             case normal: return CLOCK_MONOTONIC;
@@ -412,17 +436,17 @@ version(Posix)
 unittest
 {
     // Make sure that the values are the same across platforms.
-    static if(is(typeof(ClockType.normal)))         static assert(ClockType.normal == 0);
-    static if(is(typeof(ClockType.bootTime)))       static assert(ClockType.bootTime == 1);
-    static if(is(typeof(ClockType.coarse)))         static assert(ClockType.coarse == 2);
-    static if(is(typeof(ClockType.precise)))        static assert(ClockType.precise == 3);
-    static if(is(typeof(ClockType.processCPUTime))) static assert(ClockType.processCPUTime == 4);
-    static if(is(typeof(ClockType.raw)))            static assert(ClockType.raw == 5);
-    static if(is(typeof(ClockType.second)))         static assert(ClockType.second == 6);
-    static if(is(typeof(ClockType.threadCPUTime)))  static assert(ClockType.threadCPUTime == 7);
-    static if(is(typeof(ClockType.uptime)))         static assert(ClockType.uptime == 8);
-    static if(is(typeof(ClockType.uptimeCoarse)))   static assert(ClockType.uptimeCoarse == 9);
-    static if(is(typeof(ClockType.uptimePrecise)))  static assert(ClockType.uptimePrecise == 10);
+    static if (is(typeof(ClockType.normal)))         static assert(ClockType.normal == 0);
+    static if (is(typeof(ClockType.bootTime)))       static assert(ClockType.bootTime == 1);
+    static if (is(typeof(ClockType.coarse)))         static assert(ClockType.coarse == 2);
+    static if (is(typeof(ClockType.precise)))        static assert(ClockType.precise == 3);
+    static if (is(typeof(ClockType.processCPUTime))) static assert(ClockType.processCPUTime == 4);
+    static if (is(typeof(ClockType.raw)))            static assert(ClockType.raw == 5);
+    static if (is(typeof(ClockType.second)))         static assert(ClockType.second == 6);
+    static if (is(typeof(ClockType.threadCPUTime)))  static assert(ClockType.threadCPUTime == 7);
+    static if (is(typeof(ClockType.uptime)))         static assert(ClockType.uptime == 8);
+    static if (is(typeof(ClockType.uptimeCoarse)))   static assert(ClockType.uptimeCoarse == 9);
+    static if (is(typeof(ClockType.uptimePrecise)))  static assert(ClockType.uptimePrecise == 10);
 }
 
 
@@ -451,6 +475,8 @@ unittest
 
     Examples:
 --------------------
+import std.datetime;
+
 assert(dur!"days"(12) == dur!"hnsecs"(10_368_000_000_000L));
 assert(dur!"hnsecs"(27) == dur!"hnsecs"(27));
 assert(std.datetime.Date(2010, 9, 7) + dur!"days"(5) ==
@@ -509,30 +535,34 @@ public:
      +/
     int opCmp(Duration rhs) const nothrow @nogc
     {
-        if(_hnsecs < rhs._hnsecs)
+        if (_hnsecs < rhs._hnsecs)
             return -1;
-        if(_hnsecs > rhs._hnsecs)
+        if (_hnsecs > rhs._hnsecs)
             return 1;
         return 0;
     }
 
     unittest
     {
-        foreach(T; _TypeTuple!(Duration, const Duration, immutable Duration))
+        foreach (T; _TypeTuple!(Duration, const Duration, immutable Duration))
         {
-            foreach(U; _TypeTuple!(Duration, const Duration, immutable Duration))
+            foreach (U; _TypeTuple!(Duration, const Duration, immutable Duration))
             {
                 T t = 42;
-                U u = t;
+                // workaround https://issues.dlang.org/show_bug.cgi?id=18296
+                version (D_Coverage)
+                    U u = T(t._hnsecs);
+                else
+                    U u = t;
                 assert(t == u);
                 assert(copy(t) == u);
                 assert(t == copy(u));
             }
         }
 
-        foreach(D; _TypeTuple!(Duration, const Duration, immutable Duration))
+        foreach (D; _TypeTuple!(Duration, const Duration, immutable Duration))
         {
-            foreach(E; _TypeTuple!(Duration, const Duration, immutable Duration))
+            foreach (E; _TypeTuple!(Duration, const Duration, immutable Duration))
             {
                 assert((cast(D)Duration(12)).opCmp(cast(E)Duration(12)) == 0);
                 assert((cast(D)Duration(-12)).opCmp(cast(E)Duration(-12)) == 0);
@@ -582,20 +612,20 @@ public:
             rhs = The duration to add to or subtract from this $(D Duration).
       +/
     Duration opBinary(string op, D)(D rhs) const nothrow @nogc
-        if(((op == "+" || op == "-" || op == "%") && is(_Unqual!D == Duration)) ||
+        if (((op == "+" || op == "-" || op == "%") && is(_Unqual!D == Duration)) ||
            ((op == "+" || op == "-") && is(_Unqual!D == TickDuration)))
     {
-        static if(is(_Unqual!D == Duration))
+        static if (is(_Unqual!D == Duration))
             return Duration(mixin("_hnsecs " ~ op ~ " rhs._hnsecs"));
-        else if(is(_Unqual!D == TickDuration))
+        else if (is(_Unqual!D == TickDuration))
             return Duration(mixin("_hnsecs " ~ op ~ " rhs.hnsecs"));
     }
 
     unittest
     {
-        foreach(D; _TypeTuple!(Duration, const Duration, immutable Duration))
+        foreach (D; _TypeTuple!(Duration, const Duration, immutable Duration))
         {
-            foreach(E; _TypeTuple!(Duration, const Duration, immutable Duration))
+            foreach (E; _TypeTuple!(Duration, const Duration, immutable Duration))
             {
                 assert((cast(D)Duration(5)) + (cast(E)Duration(7)) == Duration(12));
                 assert((cast(D)Duration(5)) - (cast(E)Duration(7)) == Duration(-2));
@@ -626,7 +656,7 @@ public:
                 assert((cast(D)Duration(-7)) % (cast(E)Duration(5)) == Duration(-2));
             }
 
-            foreach(T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
+            foreach (T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
             {
                 assertApprox((cast(D)Duration(5)) + cast(T)TickDuration.from!"usecs"(7), Duration(70), Duration(80));
                 assertApprox((cast(D)Duration(5)) - cast(T)TickDuration.from!"usecs"(7), Duration(-70), Duration(-60));
@@ -667,7 +697,7 @@ public:
                   subtract this $(D Duration) from.
       +/
     Duration opBinaryRight(string op, D)(D lhs) const nothrow @nogc
-        if((op == "+" || op == "-") &&
+        if ((op == "+" || op == "-") &&
             is(_Unqual!D == TickDuration))
     {
         return Duration(mixin("lhs.hnsecs " ~ op ~ " _hnsecs"));
@@ -675,9 +705,9 @@ public:
 
     unittest
     {
-        foreach(D; _TypeTuple!(Duration, const Duration, immutable Duration))
+        foreach (D; _TypeTuple!(Duration, const Duration, immutable Duration))
         {
-            foreach(T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
+            foreach (T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
             {
                 assertApprox((cast(T)TickDuration.from!"usecs"(7)) + cast(D)Duration(5), Duration(70), Duration(80));
                 assertApprox((cast(T)TickDuration.from!"usecs"(7)) - cast(D)Duration(5), Duration(60), Duration(70));
@@ -721,12 +751,12 @@ public:
             rhs = The duration to add to or subtract from this $(D Duration).
       +/
     ref Duration opOpAssign(string op, D)(in D rhs) nothrow @nogc
-        if(((op == "+" || op == "-" || op == "%") && is(_Unqual!D == Duration)) ||
+        if (((op == "+" || op == "-" || op == "%") && is(_Unqual!D == Duration)) ||
            ((op == "+" || op == "-") && is(_Unqual!D == TickDuration)))
     {
-        static if(is(_Unqual!D == Duration))
+        static if (is(_Unqual!D == Duration))
             mixin("_hnsecs " ~ op ~ "= rhs._hnsecs;");
-        else if(is(_Unqual!D == TickDuration))
+        else if (is(_Unqual!D == TickDuration))
             mixin("_hnsecs " ~ op ~ "= rhs.hnsecs;");
         return this;
     }
@@ -735,10 +765,10 @@ public:
     {
         static void test1(string op, E)(Duration actual, in E rhs, Duration expected, size_t line = __LINE__)
         {
-            if(mixin("actual " ~ op ~ " rhs") != expected)
+            if (mixin("actual " ~ op ~ " rhs") != expected)
                 throw new AssertError("op failed", __FILE__, line);
 
-            if(actual != expected)
+            if (actual != expected)
                 throw new AssertError("op assign failed", __FILE__, line);
         }
 
@@ -749,7 +779,7 @@ public:
             assertApprox(actual, lower, upper, "op assign failed", line);
         }
 
-        foreach(E; _TypeTuple!(Duration, const Duration, immutable Duration))
+        foreach (E; _TypeTuple!(Duration, const Duration, immutable Duration))
         {
             test1!"+="(Duration(5), (cast(E)Duration(7)), Duration(12));
             test1!"-="(Duration(5), (cast(E)Duration(7)), Duration(-2));
@@ -780,7 +810,7 @@ public:
             test1!"%="(Duration(-7), (cast(E)Duration(-5)), Duration(-2));
         }
 
-        foreach(T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
+        foreach (T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
         {
             test2!"+="(Duration(5), cast(T)TickDuration.from!"usecs"(7), Duration(70), Duration(80));
             test2!"-="(Duration(5), cast(T)TickDuration.from!"usecs"(7), Duration(-70), Duration(-60));
@@ -803,9 +833,9 @@ public:
             test2!"-="(Duration(-7), cast(T)TickDuration.from!"usecs"(-5), Duration(38), Duration(48));
         }
 
-        foreach(D; _TypeTuple!(const Duration, immutable Duration))
+        foreach (D; _TypeTuple!(const Duration, immutable Duration))
         {
-            foreach(E; _TypeTuple!(Duration, const Duration, immutable Duration,
+            foreach (E; _TypeTuple!(Duration, const Duration, immutable Duration,
                                    TickDuration, const TickDuration, immutable TickDuration))
             {
                 D lhs = D(120);
@@ -831,14 +861,14 @@ public:
             value = The value to multiply this $(D Duration) by.
       +/
     Duration opBinary(string op)(long value) const nothrow @nogc
-        if(op == "*" || op == "/")
+        if (op == "*" || op == "/")
     {
         mixin("return Duration(_hnsecs " ~ op ~ " value);");
     }
 
     unittest
     {
-        foreach(D; _TypeTuple!(Duration, const Duration, immutable Duration))
+        foreach (D; _TypeTuple!(Duration, const Duration, immutable Duration))
         {
             assert((cast(D)Duration(5)) * 7 == Duration(35));
             assert((cast(D)Duration(7)) * 5 == Duration(35));
@@ -859,7 +889,7 @@ public:
 
     unittest
     {
-        foreach(D; _TypeTuple!(Duration, const Duration, immutable Duration))
+        foreach (D; _TypeTuple!(Duration, const Duration, immutable Duration))
         {
             assert((cast(D)Duration(5)) / 7 == Duration(0));
             assert((cast(D)Duration(7)) / 5 == Duration(1));
@@ -892,7 +922,7 @@ public:
             value = The value to multiply/divide this $(D Duration) by.
       +/
     ref Duration opOpAssign(string op)(long value) nothrow @nogc
-        if(op == "*" || op == "/")
+        if (op == "*" || op == "/")
     {
         mixin("_hnsecs " ~ op ~ "= value;");
         return this;
@@ -902,10 +932,10 @@ public:
     {
         static void test(D)(D actual, long value, Duration expected, size_t line = __LINE__)
         {
-            if((actual *= value) != expected)
+            if ((actual *= value) != expected)
                 throw new AssertError("op failed", __FILE__, line);
 
-            if(actual != expected)
+            if (actual != expected)
                 throw new AssertError("op assign failed", __FILE__, line);
         }
 
@@ -934,10 +964,10 @@ public:
     {
         static void test(Duration actual, long value, Duration expected, size_t line = __LINE__)
         {
-            if((actual /= value) != expected)
+            if ((actual /= value) != expected)
                 throw new AssertError("op failed", __FILE__, line);
 
-            if(actual != expected)
+            if (actual != expected)
                 throw new AssertError("op assign failed", __FILE__, line);
         }
 
@@ -973,7 +1003,7 @@ public:
             rhs = The duration to divide this $(D Duration) by.
       +/
     long opBinary(string op)(Duration rhs) const nothrow @nogc
-        if(op == "/")
+        if (op == "/")
     {
         return _hnsecs / rhs._hnsecs;
     }
@@ -1012,14 +1042,14 @@ public:
             value = The number of units to multiply this $(D Duration) by.
       +/
     Duration opBinaryRight(string op)(long value) const nothrow @nogc
-        if(op == "*")
+        if (op == "*")
     {
         return opBinary!op(value);
     }
 
     unittest
     {
-        foreach(D; _TypeTuple!(Duration, const Duration, immutable Duration))
+        foreach (D; _TypeTuple!(Duration, const Duration, immutable Duration))
         {
             assert(5 * cast(D)Duration(7) == Duration(35));
             assert(7 * cast(D)Duration(5) == Duration(35));
@@ -1043,14 +1073,14 @@ public:
         Returns the negation of this $(D Duration).
       +/
     Duration opUnary(string op)() const nothrow @nogc
-        if(op == "-")
+        if (op == "-")
     {
         return Duration(-_hnsecs);
     }
 
     unittest
     {
-        foreach(D; _TypeTuple!(Duration, const Duration, immutable Duration))
+        foreach (D; _TypeTuple!(Duration, const Duration, immutable Duration))
         {
             assert(-(cast(D)Duration(7)) == Duration(-7));
             assert(-(cast(D)Duration(5)) == Duration(-5));
@@ -1069,22 +1099,22 @@ public:
         $(D duration.to!TickDuration())
       +/
     TickDuration opCast(T)() const nothrow @nogc
-        if(is(_Unqual!T == TickDuration))
+        if (is(_Unqual!T == TickDuration))
     {
         return TickDuration.from!"hnsecs"(_hnsecs);
     }
 
     unittest
     {
-        foreach(D; _TypeTuple!(Duration, const Duration, immutable Duration))
+        foreach (D; _TypeTuple!(Duration, const Duration, immutable Duration))
         {
-            foreach(units; _TypeTuple!("seconds", "msecs", "usecs", "hnsecs"))
+            foreach (units; _TypeTuple!("seconds", "msecs", "usecs", "hnsecs"))
             {
                 enum unitsPerSec = convert!("seconds", units)(1);
 
-                if(TickDuration.ticksPerSec >= unitsPerSec)
+                if (TickDuration.ticksPerSec >= unitsPerSec)
                 {
-                    foreach(T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
+                    foreach (T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
                     {
                         auto t = TickDuration.from!units(1);
                         assertApprox(cast(T)cast(D)dur!units(1), t - TickDuration(1), t + TickDuration(1), units);
@@ -1123,7 +1153,7 @@ public:
 
     //Temporary hack until bug http://d.puremagic.com/issues/show_bug.cgi?id=5747 is fixed.
     Duration opCast(T)() const nothrow @nogc
-        if(is(_Unqual!T == Duration))
+        if (is(_Unqual!T == Duration))
     {
         return this;
     }
@@ -1162,18 +1192,18 @@ public:
         For negative durations, all of the split values will be negative.
       +/
     template split(units...)
-        if(allAreAcceptedUnits!("weeks", "days", "hours", "minutes", "seconds",
+        if (allAreAcceptedUnits!("weeks", "days", "hours", "minutes", "seconds",
                                 "msecs", "usecs", "hnsecs", "nsecs")(units) &&
            unitsAreInDescendingOrder(units))
     {
         /++ Ditto +/
         void split(Args...)(out Args args) const nothrow @nogc
-            if(units.length != 0 && args.length == units.length && allAreMutableIntegralTypes!Args)
+            if (units.length != 0 && args.length == units.length && allAreMutableIntegralTypes!Args)
         {
             long hnsecs = _hnsecs;
-            foreach(i, unit; units)
+            foreach (i, unit; units)
             {
-                static if(unit == "nsecs")
+                static if (unit == "nsecs")
                     args[i] = cast(Args[i])convert!("hnsecs", "nsecs")(hnsecs);
                 else
                     args[i] = cast(Args[i])splitUnitsFromHNSecs!unit(hnsecs);
@@ -1183,14 +1213,14 @@ public:
         /++ Ditto +/
         auto split() const nothrow @nogc
         {
-            static if(units.length == 0)
+            static if (units.length == 0)
                 return split!("weeks", "days", "hours", "minutes", "seconds", "msecs", "usecs", "hnsecs")();
             else
             {
                 static string genMemberDecls()
                 {
                     string retval;
-                    foreach(unit; units)
+                    foreach (unit; units)
                     {
                         retval ~= "long ";
                         retval ~= unit;
@@ -1207,11 +1237,11 @@ public:
                 static string genSplitCall()
                 {
                     auto retval = "split(";
-                    foreach(i, unit; units)
+                    foreach (i, unit; units)
                     {
                         retval ~= "su.";
                         retval ~= unit;
-                        if(i < units.length - 1)
+                        if (i < units.length - 1)
                             retval ~= ", ";
                         else
                             retval ~= ");";
@@ -1230,9 +1260,9 @@ public:
           +/
         private template allAreMutableIntegralTypes(Args...)
         {
-            static if(Args.length == 0)
+            static if (Args.length == 0)
                 enum allAreMutableIntegralTypes = true;
-            else static if(!is(Args[0] == long) &&
+            else static if (!is(Args[0] == long) &&
                            !is(Args[0] == int) &&
                            !is(Args[0] == short) &&
                            !is(Args[0] == byte) &&
@@ -1249,11 +1279,11 @@ public:
 
         unittest
         {
-            foreach(T; _TypeTuple!(long, int, short, byte, ulong, uint, ushort, ubyte))
+            foreach (T; _TypeTuple!(long, int, short, byte, ulong, uint, ushort, ubyte))
                 static assert(allAreMutableIntegralTypes!T);
-            foreach(T; _TypeTuple!(long, int, short, byte, ulong, uint, ushort, ubyte))
+            foreach (T; _TypeTuple!(long, int, short, byte, ulong, uint, ushort, ubyte))
                 static assert(!allAreMutableIntegralTypes!(const T));
-            foreach(T; _TypeTuple!(char, wchar, dchar, float, double, real, string))
+            foreach (T; _TypeTuple!(char, wchar, dchar, float, double, real, string))
                 static assert(!allAreMutableIntegralTypes!T);
             static assert(allAreMutableIntegralTypes!(long, int, short, byte));
             static assert(!allAreMutableIntegralTypes!(long, int, short, char, byte));
@@ -1316,7 +1346,7 @@ public:
 
     pure nothrow unittest
     {
-        foreach(D; _TypeTuple!(const Duration, immutable Duration))
+        foreach (D; _TypeTuple!(const Duration, immutable Duration))
         {
             D d = dur!"weeks"(3) + dur!"days"(5) + dur!"hours"(19) + dur!"minutes"(7) +
                   dur!"seconds"(2) + dur!"hnsecs"(1234567);
@@ -1424,7 +1454,7 @@ public:
             static assert(!is(typeof(d.split("seconds", "msecs", "msecs")())));
             alias _TypeTuple!("nsecs", "hnsecs", "usecs", "msecs", "seconds",
                               "minutes", "hours", "days", "weeks") timeStrs;
-            foreach(i, str; timeStrs[1 .. $])
+            foreach (i, str; timeStrs[1 .. $])
                 static assert(!is(typeof(d.split!(timeStrs[i - 1], str)())));
 
             D nd = -d;
@@ -1459,7 +1489,7 @@ public:
         So, unlike $(D split), it does not strip out the larger units.
       +/
     @property long total(string units)() const nothrow @nogc
-        if(units == "weeks" ||
+        if (units == "weeks" ||
            units == "days" ||
            units == "hours" ||
            units == "minutes" ||
@@ -1469,7 +1499,7 @@ public:
            units == "hnsecs" ||
            units == "nsecs")
     {
-        static if(units == "nsecs")
+        static if (units == "nsecs")
             return convert!("hnsecs", "nsecs")(_hnsecs);
         else
             return getUnitsFromHNSecs!units(_hnsecs);
@@ -1493,7 +1523,7 @@ public:
 
     unittest
     {
-        foreach(D; _TypeTuple!(const Duration, immutable Duration))
+        foreach (D; _TypeTuple!(const Duration, immutable Duration))
         {
             assert((cast(D)dur!"weeks"(12)).total!"weeks" == 12);
             assert((cast(D)dur!"weeks"(12)).total!"days" == 84);
@@ -1599,7 +1629,7 @@ public:
 
     unittest
     {
-        foreach(D; _TypeTuple!(Duration, const Duration, immutable Duration))
+        foreach (D; _TypeTuple!(Duration, const Duration, immutable Duration))
         {
             assert((cast(D)Duration(0)).toString() == "0 hnsecs");
             assert((cast(D)Duration(1)).toString() == "1 hnsec");
@@ -1657,7 +1687,7 @@ public:
 
     unittest
     {
-        foreach(D; _TypeTuple!(Duration, const Duration, immutable Duration))
+        foreach (D; _TypeTuple!(Duration, const Duration, immutable Duration))
         {
             assert(!(cast(D)Duration(100)).isNegative);
             assert(!(cast(D)Duration(1)).isNegative);
@@ -1714,22 +1744,22 @@ unittest
         td    = The TickDuration to convert
   +/
 T to(string units, T, D)(D td) @safe pure nothrow @nogc
-    if(is(_Unqual!D == TickDuration) &&
+    if (is(_Unqual!D == TickDuration) &&
        (units == "seconds" ||
         units == "msecs" ||
         units == "usecs" ||
         units == "hnsecs" ||
         units == "nsecs"))
 {
-    static if(__traits(isIntegral, T) && T.sizeof >= 4)
+    static if (__traits(isIntegral, T) && T.sizeof >= 4)
     {
         enum unitsPerSec = convert!("seconds", units)(1);
 
         return cast(T) (td.length / (TickDuration.ticksPerSec / cast(real) unitsPerSec));
     }
-    else static if(__traits(isFloating, T))
+    else static if (__traits(isFloating, T))
     {
-        static if(units == "seconds")
+        static if (units == "seconds")
             return td.length / cast(T)TickDuration.ticksPerSec;
         else
         {
@@ -1766,7 +1796,7 @@ unittest
 
         auto _str(F)(F val)
         {
-            static if(is(F == int) || is(F == long))
+            static if (is(F == int) || is(F == long))
                 return signedToTempString(val, 10);
             else
                 return unsignedToTempString(val, 10);
@@ -1782,7 +1812,7 @@ unittest
             F t4f = to!(U,F)(t12m);
 
 
-            static if(is(F == float) || is(F == double) || is(F == real))
+            static if (is(F == float) || is(F == double) || is(F == real))
             {
                 assert((t1f - cast(F)t1v) <= 3.0,
                     F.stringof ~ " " ~ U ~ " " ~ doubleToString(t1f) ~ " " ~
@@ -1847,7 +1877,7 @@ unittest
         length = The number of units in the $(D Duration).
   +/
 Duration dur(string units)(long length) @safe pure nothrow @nogc
-    if(units == "weeks" ||
+    if (units == "weeks" ||
        units == "days" ||
        units == "hours" ||
        units == "minutes" ||
@@ -1898,7 +1928,7 @@ unittest
 
 unittest
 {
-    foreach(D; _TypeTuple!(Duration, const Duration, immutable Duration))
+    foreach (D; _TypeTuple!(Duration, const Duration, immutable Duration))
     {
         assert(dur!"weeks"(7).total!"weeks" == 7);
         assert(dur!"days"(7).total!"days" == 7);
@@ -1925,9 +1955,9 @@ unittest
 // used in MonoTimeImpl
 private string _clockTypeName(ClockType clockType)
 {
-    final switch(clockType)
+    final switch (clockType)
     {
-        foreach(name; __traits(allMembers, ClockType))
+        foreach (name; __traits(allMembers, ClockType))
         {
         case __traits(getMember, ClockType, name):
             return name;
@@ -1939,9 +1969,9 @@ private string _clockTypeName(ClockType clockType)
 // used in MonoTimeImpl
 private size_t _clockTypeIdx(ClockType clockType)
 {
-    final switch(clockType)
+    final switch (clockType)
     {
-        foreach(i, name; __traits(allMembers, ClockType))
+        foreach (i, name; __traits(allMembers, ClockType))
         {
         case __traits(getMember, ClockType, name):
             return i;
@@ -2013,9 +2043,9 @@ struct MonoTimeImpl(ClockType clockType)
 
 @safe:
 
-    version(Windows)
+    version (Windows)
     {
-        static if(clockType != ClockType.coarse &&
+        static if (clockType != ClockType.coarse &&
                   clockType != ClockType.normal &&
                   clockType != ClockType.precise)
         {
@@ -2023,9 +2053,9 @@ struct MonoTimeImpl(ClockType clockType)
                              " is not supported by MonoTimeImpl on this system.");
         }
     }
-    else version(Darwin)
+    else version (Darwin)
     {
-        static if(clockType != ClockType.coarse &&
+        static if (clockType != ClockType.coarse &&
                   clockType != ClockType.normal &&
                   clockType != ClockType.precise)
         {
@@ -2033,7 +2063,7 @@ struct MonoTimeImpl(ClockType clockType)
                              " is not supported by MonoTimeImpl on this system.");
         }
     }
-    else version(Posix)
+    else version (Posix)
     {
         enum clockArg = _posixClock(clockType);
     }
@@ -2069,35 +2099,35 @@ struct MonoTimeImpl(ClockType clockType)
       +/
     static @property MonoTimeImpl currTime() @trusted nothrow @nogc
     {
-        if(ticksPerSecond == 0)
+        if (ticksPerSecond == 0)
         {
             import core.internal.abort : abort;
             abort("MonoTimeImpl!(ClockType." ~ _clockName ~
                       ") failed to get the frequency of the system's monotonic clock.");
         }
 
-        version(Windows)
+        version (Windows)
         {
-            long ticks;
-            if(QueryPerformanceCounter(&ticks) == 0)
-            {
-                // This probably cannot happen on Windows 95 or later
-                import core.internal.abort : abort;
-                abort("Call to QueryPerformanceCounter failed.");
-            }
+            long ticks = void;
+            QueryPerformanceCounter(&ticks);
             return MonoTimeImpl(ticks);
         }
-        else version(Darwin)
+        else version (Darwin)
             return MonoTimeImpl(mach_absolute_time());
-        else version(Posix)
+        else version (Posix)
         {
-            timespec ts;
-            if(clock_gettime(clockArg, &ts) != 0)
+            timespec ts = void;
+            immutable error = clock_gettime(clockArg, &ts);
+            // clockArg is supported and if tv_sec is long or larger
+            // overflow won't happen before 292 billion years A.D.
+            static if (ts.tv_sec.max < long.max)
             {
-                import core.internal.abort : abort;
-                abort("Call to clock_gettime failed.");
+                if (error)
+                {
+                    import core.internal.abort : abort;
+                    abort("Call to clock_gettime failed.");
+                }
             }
-
             return MonoTimeImpl(convClockFreq(ts.tv_sec * 1_000_000_000L + ts.tv_nsec,
                                               1_000_000_000L,
                                               ticksPerSecond));
@@ -2147,7 +2177,7 @@ struct MonoTimeImpl(ClockType clockType)
      +/
     int opCmp(MonoTimeImpl rhs) const pure nothrow @nogc
     {
-        if(_ticks < rhs._ticks)
+        if (_ticks < rhs._ticks)
             return -1;
         return _ticks > rhs._ticks ? 1 : 0;
     }
@@ -2216,7 +2246,7 @@ assert(before + timeElapsed == after);
             rather than using $(LREF Duration).
       +/
     Duration opBinary(string op)(MonoTimeImpl rhs) const pure nothrow @nogc
-        if(op == "-")
+        if (op == "-")
     {
         immutable diff = _ticks - rhs._ticks;
         return Duration(convClockFreq(diff , ticksPerSecond, hnsecsPer!"seconds"));
@@ -2254,7 +2284,7 @@ assert(before + timeElapsed == after);
         a MonoTime which is adjusted by that amount.
       +/
     MonoTimeImpl opBinary(string op)(Duration rhs) const pure nothrow @nogc
-        if(op == "+" || op == "-")
+        if (op == "+" || op == "-")
     {
         immutable rhsConverted = convClockFreq(rhs._hnsecs, hnsecsPer!"seconds", ticksPerSecond);
         mixin("return MonoTimeImpl(_ticks " ~ op ~ " rhsConverted);");
@@ -2286,7 +2316,7 @@ assert(before + timeElapsed == after);
 
     /++ Ditto +/
     ref MonoTimeImpl opOpAssign(string op)(Duration rhs) pure nothrow @nogc
-        if(op == "+" || op == "-")
+        if (op == "+" || op == "-")
     {
         immutable rhsConverted = convClockFreq(rhs._hnsecs, hnsecsPer!"seconds", ticksPerSecond);
         mixin("_ticks " ~ op ~ "= rhsConverted;");
@@ -2362,7 +2392,7 @@ assert(before + timeElapsed == after);
     ///
     string toString() const pure nothrow
     {
-        static if(clockType == ClockType.normal)
+        static if (clockType == ClockType.normal)
             return "MonoTime(" ~ signedToTempString(_ticks, 10) ~ " ticks, " ~ signedToTempString(ticksPerSecond, 10) ~ " ticks per second)";
         else
             return "MonoTimeImpl!(ClockType." ~ _clockName ~ ")(" ~ signedToTempString(_ticks, 10) ~ " ticks, " ~
@@ -2381,7 +2411,7 @@ assert(before + timeElapsed == after);
 
         immutable mt = MonoTimeImpl.currTime;
         auto str = mt.toString();
-        static if(is(typeof(this) == MonoTime))
+        static if (is(typeof(this) == MonoTime))
             eat(str, "MonoTime(");
         else
             eat(str, "MonoTimeImpl!(ClockType."~_clockName~")(");
@@ -2439,47 +2469,47 @@ extern(C) void _d_initMonoTime()
     // documentation build defines all of the possible ClockTypes, which won't
     // work when they're used in the static ifs, because no system supports them
     // all.
-    version(CoreDdoc)
+    version (CoreDdoc)
     {}
-    else version(Windows)
+    else version (Windows)
     {
         long ticksPerSecond;
-        if(QueryPerformanceFrequency(&ticksPerSecond) != 0)
+        if (QueryPerformanceFrequency(&ticksPerSecond) != 0)
         {
-            foreach(i, typeStr; __traits(allMembers, ClockType))
+            foreach (i, typeStr; __traits(allMembers, ClockType))
             {
                 // ensure we are only writing immutable data once
-                if(tps[i] != 0)
+                if (tps[i] != 0)
                     // should only be called once
                     assert(0);
                 tps[i] = ticksPerSecond;
             }
         }
     }
-    else version(Darwin)
+    else version (Darwin)
     {
         immutable long ticksPerSecond = machTicksPerSecond();
-        foreach(i, typeStr; __traits(allMembers, ClockType))
+        foreach (i, typeStr; __traits(allMembers, ClockType))
         {
             // ensure we are only writing immutable data once
-            if(tps[i] != 0)
+            if (tps[i] != 0)
                 // should only be called once
                 assert(0);
             tps[i] = ticksPerSecond;
         }
     }
-    else version(Posix)
+    else version (Posix)
     {
         timespec ts;
-        foreach(i, typeStr; __traits(allMembers, ClockType))
+        foreach (i, typeStr; __traits(allMembers, ClockType))
         {
-            static if(typeStr != "second")
+            static if (typeStr != "second")
             {
                 enum clockArg = _posixClock(__traits(getMember, ClockType, typeStr));
-                if(clock_getres(clockArg, &ts) == 0)
+                if (clock_getres(clockArg, &ts) == 0)
                 {
                     // ensure we are only writing immutable data once
-                    if(tps[i] != 0)
+                    if (tps[i] != 0)
                         // should only be called once
                         assert(0);
 
@@ -2520,7 +2550,7 @@ unittest
 
     }
 
-    foreach(typeStr; __traits(allMembers, ClockType))
+    foreach (typeStr; __traits(allMembers, ClockType))
     {
         mixin("alias type = ClockType." ~ typeStr ~ ";");
         static if (clockSupported(type))
@@ -2537,7 +2567,7 @@ unittest
             }
             assert(v1 <= v2);
 
-            foreach(otherStr; __traits(allMembers, ClockType))
+            foreach (otherStr; __traits(allMembers, ClockType))
             {
                 mixin("alias other = ClockType." ~ otherStr ~ ";");
                 static if (clockSupported(other))
@@ -2617,13 +2647,13 @@ unittest
     import core.stdc.math;
     immutable numDigitsMinus1 = cast(int)floor(log10(freq5));
     auto freq6 = cast(long)pow(10, numDigitsMinus1);
-    if(freq5 > freq6)
+    if (freq5 > freq6)
         freq6 *= 10;
 
-    foreach(_; 0 .. 10_000)
+    foreach (_; 0 .. 10_000)
     {
         long[2] values = [rand(), cast(long)rand() * (rand() % 16)];
-        foreach(i; values)
+        foreach (i; values)
         {
             scope(failure) printf("i %s\n", numToStringz(i));
             assertApprox(convClockFreq(convClockFreq(i, freq1, freq2), freq2, freq1), i - 10, i + 10);
@@ -2760,22 +2790,22 @@ struct TickDuration
 
     @trusted shared static this()
     {
-        version(Windows)
+        version (Windows)
         {
-            if(QueryPerformanceFrequency(cast(long*)&ticksPerSec) == 0)
+            if (QueryPerformanceFrequency(cast(long*)&ticksPerSec) == 0)
                 ticksPerSec = 0;
         }
-        else version(Darwin)
+        else version (Darwin)
         {
             ticksPerSec = machTicksPerSecond();
         }
-        else version(Posix)
+        else version (Posix)
         {
-            static if(is(typeof(clock_gettime)))
+            static if (is(typeof(clock_gettime)))
             {
                 timespec ts;
 
-                if(clock_getres(CLOCK_MONOTONIC, &ts) != 0)
+                if (clock_getres(CLOCK_MONOTONIC, &ts) != 0)
                     ticksPerSec = 0;
                 else
                 {
@@ -2792,7 +2822,7 @@ struct TickDuration
                 ticksPerSec = 1_000_000;
         }
 
-        if(ticksPerSec != 0)
+        if (ticksPerSec != 0)
             appOrigin = TickDuration.currSystemTick;
     }
 
@@ -2821,7 +2851,7 @@ struct TickDuration
 
     unittest
     {
-        foreach(T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
+        foreach (T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
         {
             assert((cast(T)TickDuration(ticksPerSec)).seconds == 1);
             assert((cast(T)TickDuration(ticksPerSec - 1)).seconds == 0);
@@ -2879,7 +2909,7 @@ struct TickDuration
             length = The number of units in the $(D TickDuration).
       +/
     static TickDuration from(string units)(long length) @safe pure nothrow @nogc
-        if(units == "seconds" ||
+        if (units == "seconds" ||
            units == "msecs" ||
            units == "usecs" ||
            units == "hnsecs" ||
@@ -2892,9 +2922,9 @@ struct TickDuration
 
     unittest
     {
-        foreach(units; _TypeTuple!("seconds", "msecs", "usecs", "nsecs"))
+        foreach (units; _TypeTuple!("seconds", "msecs", "usecs", "nsecs"))
         {
-            foreach(T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
+            foreach (T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
             {
                 assertApprox((cast(T)TickDuration.from!units(1000)).to!(units, long)(),
                              500, 1500, units);
@@ -2915,21 +2945,21 @@ struct TickDuration
         $(D tickDuration.to!Duration())
       +/
     Duration opCast(T)() @safe const pure nothrow @nogc
-        if(is(_Unqual!T == Duration))
+        if (is(_Unqual!T == Duration))
     {
         return Duration(hnsecs);
     }
 
     unittest
     {
-        foreach(D; _TypeTuple!(Duration, const Duration, immutable Duration))
+        foreach (D; _TypeTuple!(Duration, const Duration, immutable Duration))
         {
-            foreach(T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
+            foreach (T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
             {
                 auto expected = dur!"seconds"(1);
                 assert(cast(D)cast(T)TickDuration.from!"seconds"(1) == expected);
 
-                foreach(units; _TypeTuple!("msecs", "usecs", "hnsecs"))
+                foreach (units; _TypeTuple!("msecs", "usecs", "hnsecs"))
                 {
                     D actual = cast(D)cast(T)TickDuration.from!units(1_000_000);
                     assertApprox(actual, dur!units(900_000), dur!units(1_100_000));
@@ -2941,7 +2971,7 @@ struct TickDuration
 
     //Temporary hack until bug http://d.puremagic.com/issues/show_bug.cgi?id=5747 is fixed.
     TickDuration opCast(T)() @safe const pure nothrow @nogc
-        if(is(_Unqual!T == TickDuration))
+        if (is(_Unqual!T == TickDuration))
     {
         return this;
     }
@@ -2964,7 +2994,7 @@ struct TickDuration
                   $(D $(D TickDuration)).
       +/
     ref TickDuration opOpAssign(string op)(TickDuration rhs) @safe pure nothrow @nogc
-        if(op == "+" || op == "-")
+        if (op == "+" || op == "-")
     {
         mixin("length " ~ op ~ "= rhs.length;");
         return this;
@@ -2972,7 +3002,7 @@ struct TickDuration
 
     unittest
     {
-        foreach(T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
+        foreach (T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
         {
             auto a = TickDuration.currSystemTick;
             auto result = a += cast(T)TickDuration.currSystemTick;
@@ -2984,7 +3014,7 @@ struct TickDuration
             assert(b == result);
             assert(b.to!("seconds", real)() <= 0);
 
-            foreach(U; _TypeTuple!(const TickDuration, immutable TickDuration))
+            foreach (U; _TypeTuple!(const TickDuration, immutable TickDuration))
             {
                 U u = TickDuration(12);
                 static assert(!__traits(compiles, u += cast(T)TickDuration.currSystemTick));
@@ -3010,14 +3040,14 @@ struct TickDuration
                   $(D TickDuration).
       +/
     TickDuration opBinary(string op)(TickDuration rhs) @safe const pure nothrow @nogc
-        if(op == "+" || op == "-")
+        if (op == "+" || op == "-")
     {
         return TickDuration(mixin("length " ~ op ~ " rhs.length"));
     }
 
     unittest
     {
-        foreach(T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
+        foreach (T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
         {
             T a = TickDuration.currSystemTick;
             T b = TickDuration.currSystemTick;
@@ -3031,14 +3061,14 @@ struct TickDuration
         Returns the negation of this $(D TickDuration).
       +/
     TickDuration opUnary(string op)() @safe const pure nothrow @nogc
-        if(op == "-")
+        if (op == "-")
     {
         return TickDuration(-length);
     }
 
     unittest
     {
-        foreach(T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
+        foreach (T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
         {
             assert(-(cast(T)TickDuration(7)) == TickDuration(-7));
             assert(-(cast(T)TickDuration(5)) == TickDuration(-5));
@@ -3059,9 +3089,9 @@ struct TickDuration
 
     unittest
     {
-        foreach(T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
+        foreach (T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
         {
-            foreach(U; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
+            foreach (U; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
             {
                 T t = TickDuration.currSystemTick;
                 U u = t;
@@ -3071,9 +3101,9 @@ struct TickDuration
             }
         }
 
-        foreach(T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
+        foreach (T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
         {
-            foreach(U; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
+            foreach (U; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
             {
                 T t = TickDuration.currSystemTick;
                 U u = t + t;
@@ -3109,7 +3139,7 @@ struct TickDuration
             value = The value to divide from this duration.
       +/
     void opOpAssign(string op, T)(T value) @safe pure nothrow @nogc
-        if(op == "*" &&
+        if (op == "*" &&
            (__traits(isIntegral, T) || __traits(isFloating, T)))
     {
         length = cast(long)(length * value);
@@ -3132,7 +3162,7 @@ struct TickDuration
         t1 *= 2.1;
         assert(t1 > t2);
 
-        foreach(T; _TypeTuple!(const TickDuration, immutable TickDuration))
+        foreach (T; _TypeTuple!(const TickDuration, immutable TickDuration))
         {
             T t = TickDuration.currSystemTick;
             assert(!__traits(compiles, t *= 12));
@@ -3157,10 +3187,10 @@ struct TickDuration
             $(D TimeException) if an attempt to divide by $(D 0) is made.
       +/
     void opOpAssign(string op, T)(T value) @safe pure
-        if(op == "/" &&
+        if (op == "/" &&
            (__traits(isIntegral, T) || __traits(isFloating, T)))
     {
-        if(value == 0)
+        if (value == 0)
             throw new TimeException("Attempted division by 0.");
 
         length = cast(long)(length / value);
@@ -3185,7 +3215,7 @@ struct TickDuration
 
         _assertThrown!TimeException(t2 /= 0);
 
-        foreach(T; _TypeTuple!(const TickDuration, immutable TickDuration))
+        foreach (T; _TypeTuple!(const TickDuration, immutable TickDuration))
         {
             T t = TickDuration.currSystemTick;
             assert(!__traits(compiles, t /= 12));
@@ -3207,7 +3237,7 @@ struct TickDuration
             value = The value to divide from this $(D TickDuration).
       +/
     TickDuration opBinary(string op, T)(T value) @safe const pure nothrow @nogc
-        if(op == "*" &&
+        if (op == "*" &&
            (__traits(isIntegral, T) || __traits(isFloating, T)))
     {
         return TickDuration(cast(long)(length * value));
@@ -3215,7 +3245,7 @@ struct TickDuration
 
     unittest
     {
-        foreach(T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
+        foreach (T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
         {
             T t1 = TickDuration.currSystemTick;
             T t2 = t1 + t1;
@@ -3243,10 +3273,10 @@ struct TickDuration
             $(D TimeException) if an attempt to divide by $(D 0) is made.
       +/
     TickDuration opBinary(string op, T)(T value) @safe const pure
-        if(op == "/" &&
+        if (op == "/" &&
            (__traits(isIntegral, T) || __traits(isFloating, T)))
     {
-        if(value == 0)
+        if (value == 0)
             throw new TimeException("Attempted division by 0.");
 
         return TickDuration(cast(long)(length / value));
@@ -3254,7 +3284,7 @@ struct TickDuration
 
     unittest
     {
-        foreach(T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
+        foreach (T; _TypeTuple!(TickDuration, const TickDuration, immutable TickDuration))
         {
             T t1 = TickDuration.currSystemTick;
             T t2 = t1 + t1;
@@ -3279,7 +3309,7 @@ struct TickDuration
 
     unittest
     {
-        foreach(i; [-42, 0, 42])
+        foreach (i; [-42, 0, 42])
             assert(TickDuration(i).length == i);
     }
 
@@ -3312,45 +3342,47 @@ struct TickDuration
     static @property TickDuration currSystemTick() @trusted nothrow @nogc
     {
         import core.internal.abort : abort;
-        version(Windows)
+        version (Windows)
         {
-            ulong ticks;
-            if(QueryPerformanceCounter(cast(long*)&ticks) == 0)
-                abort("Failed in QueryPerformanceCounter().");
-
+            ulong ticks = void;
+            QueryPerformanceCounter(cast(long*)&ticks);
             return TickDuration(ticks);
         }
-        else version(Darwin)
+        else version (Darwin)
         {
-            static if(is(typeof(mach_absolute_time)))
+            static if (is(typeof(mach_absolute_time)))
                 return TickDuration(cast(long)mach_absolute_time());
             else
             {
-                timeval tv;
-                if(gettimeofday(&tv, null) != 0)
-                    abort("Failed in gettimeofday().");
-
+                timeval tv = void;
+                gettimeofday(&tv, null);
                 return TickDuration(tv.tv_sec * TickDuration.ticksPerSec +
                                     tv.tv_usec * TickDuration.ticksPerSec / 1000 / 1000);
             }
         }
-        else version(Posix)
+        else version (Posix)
         {
-            static if(is(typeof(clock_gettime)))
+            static if (is(typeof(clock_gettime)))
             {
-                timespec ts;
-                if(clock_gettime(CLOCK_MONOTONIC, &ts) != 0)
-                    abort("Failed in clock_gettime().");
-
+                timespec ts = void;
+                immutable error = clock_gettime(CLOCK_MONOTONIC, &ts);
+                // CLOCK_MONOTONIC is supported and if tv_sec is long or larger
+                // overflow won't happen before 292 billion years A.D.
+                static if (ts.tv_sec.max < long.max)
+                {
+                    if (error)
+                    {
+                        import core.internal.abort : abort;
+                        abort("Call to clock_gettime failed.");
+                    }
+                }
                 return TickDuration(ts.tv_sec * TickDuration.ticksPerSec +
                                     ts.tv_nsec * TickDuration.ticksPerSec / 1000 / 1000 / 1000);
             }
             else
             {
-                timeval tv;
-                if(gettimeofday(&tv, null) != 0)
-                    abort("Failed in gettimeofday().");
-
+                timeval tv = void;
+                gettimeofday(&tv, null);
                 return TickDuration(tv.tv_sec * TickDuration.ticksPerSec +
                                     tv.tv_usec * TickDuration.ticksPerSec / 1000 / 1000);
             }
@@ -3377,7 +3409,7 @@ struct TickDuration
         value = The value to convert.
   +/
 long convert(string from, string to)(long value) @safe pure nothrow @nogc
-    if(((from == "weeks" ||
+    if (((from == "weeks" ||
          from == "days" ||
          from == "hours" ||
          from == "minutes" ||
@@ -3397,29 +3429,29 @@ long convert(string from, string to)(long value) @safe pure nothrow @nogc
          to == "nsecs")) ||
        ((from == "years" || from == "months") && (to == "years" || to == "months")))
 {
-    static if(from == "years")
+    static if (from == "years")
     {
-        static if(to == "years")
+        static if (to == "years")
             return value;
-        else static if(to == "months")
+        else static if (to == "months")
             return value * 12;
         else
             static assert(0, "A generic month or year cannot be converted to or from smaller units.");
     }
-    else static if(from == "months")
+    else static if (from == "months")
     {
-        static if(to == "years")
+        static if (to == "years")
             return value / 12;
-        else static if(to == "months")
+        else static if (to == "months")
             return value;
         else
             static assert(0, "A generic month or year cannot be converted to or from smaller units.");
     }
-    else static if(from == "nsecs" && to == "nsecs")
+    else static if (from == "nsecs" && to == "nsecs")
         return value;
-    else static if(from == "nsecs")
+    else static if (from == "nsecs")
         return convert!("hnsecs", to)(value / 100);
-    else static if(to == "nsecs")
+    else static if (to == "nsecs")
         return convert!(from, "hnsecs")(value) * 100;
     else
         return (hnsecsPer!from * value) / hnsecsPer!to;
@@ -3445,13 +3477,13 @@ unittest
 
 unittest
 {
-    foreach(units; _TypeTuple!("weeks", "days", "hours", "seconds", "msecs", "usecs", "hnsecs", "nsecs"))
+    foreach (units; _TypeTuple!("weeks", "days", "hours", "seconds", "msecs", "usecs", "hnsecs", "nsecs"))
     {
         static assert(!__traits(compiles, convert!("years", units)(12)), units);
         static assert(!__traits(compiles, convert!(units, "years")(12)), units);
     }
 
-    foreach(units; _TypeTuple!("years", "months", "weeks", "days",
+    foreach (units; _TypeTuple!("years", "months", "weeks", "days",
                                "hours", "seconds", "msecs", "usecs", "hnsecs", "nsecs"))
     {
         assert(convert!(units, units)(12) == 12);
@@ -3514,7 +3546,13 @@ unittest
 }
 
 
+// @@@DEPRECATED_2018-10@@@
 /++
+    $(RED Everything in druntime and Phobos that was using FracSec now uses
+          Duration for greater simplicity. So, FracSec has been deprecated.
+          It will be removed from the docs in October 2018, and removed
+          completely from druntime in October 2019.)
+
     Represents fractional seconds.
 
     This is the portion of the time which is smaller than a second and it cannot
@@ -3534,6 +3572,7 @@ unittest
     given as nsecs will be converted to hnsecs using $(D convert) (which uses
     truncating division when converting to smaller units).
   +/
+deprecated("FracSec has been deprecated in favor of just using Duration for the sake of simplicity")
 struct FracSec
 {
 @safe pure:
@@ -3566,7 +3605,7 @@ public:
             $(D -1) seconds.
       +/
     static FracSec from(string units)(long value)
-        if(units == "msecs" ||
+        if (units == "msecs" ||
            units == "usecs" ||
            units == "hnsecs" ||
            units == "nsecs")
@@ -3582,7 +3621,7 @@ public:
         assert(FracSec.from!"usecs"(0) == FracSec(0));
         assert(FracSec.from!"hnsecs"(0) == FracSec(0));
 
-        foreach(sign; [1, -1])
+        foreach (sign; [1, -1])
         {
             _assertThrown!TimeException(from!"msecs"(1000 * sign));
 
@@ -3617,16 +3656,16 @@ public:
         Returns the negation of this $(D FracSec).
       +/
     FracSec opUnary(string op)() const nothrow @nogc
-        if(op == "-")
+        if (op == "-")
     {
         return FracSec(-_hnsecs);
     }
 
     unittest
     {
-        foreach(val; [-7, -5, 0, 5, 7])
+        foreach (val; [-7, -5, 0, 5, 7])
         {
-            foreach(F; _TypeTuple!(FracSec, const FracSec, immutable FracSec))
+            foreach (F; _TypeTuple!(FracSec, const FracSec, immutable FracSec))
             {
                 F fs = FracSec(val);
                 assert(-fs == FracSec(-val));
@@ -3645,11 +3684,11 @@ public:
 
     unittest
     {
-        foreach(F; _TypeTuple!(FracSec, const FracSec, immutable FracSec))
+        foreach (F; _TypeTuple!(FracSec, const FracSec, immutable FracSec))
         {
             assert(FracSec(0).msecs == 0);
 
-            foreach(sign; [1, -1])
+            foreach (sign; [1, -1])
             {
                 assert((cast(F)FracSec(1 * sign)).msecs == 0);
                 assert((cast(F)FracSec(999 * sign)).msecs == 0);
@@ -3684,7 +3723,7 @@ public:
             FracSec fs;
             fs.msecs = msecs;
 
-            if(fs != expected)
+            if (fs != expected)
                 throw new AssertError("unittest failure", __FILE__, line);
         }
 
@@ -3693,13 +3732,13 @@ public:
 
         test(0, FracSec(0));
 
-        foreach(sign; [1, -1])
+        foreach (sign; [1, -1])
         {
             test(1 * sign, FracSec(10_000 * sign));
             test(999 * sign, FracSec(9_990_000 * sign));
         }
 
-        foreach(F; _TypeTuple!(const FracSec, immutable FracSec))
+        foreach (F; _TypeTuple!(const FracSec, immutable FracSec))
         {
             F fs = FracSec(1234567);
             static assert(!__traits(compiles, fs.msecs = 12), F.stringof);
@@ -3717,11 +3756,11 @@ public:
 
     unittest
     {
-        foreach(F; _TypeTuple!(FracSec, const FracSec, immutable FracSec))
+        foreach (F; _TypeTuple!(FracSec, const FracSec, immutable FracSec))
         {
             assert(FracSec(0).usecs == 0);
 
-            foreach(sign; [1, -1])
+            foreach (sign; [1, -1])
             {
                 assert((cast(F)FracSec(1 * sign)).usecs == 0);
                 assert((cast(F)FracSec(999 * sign)).usecs == 99 * sign);
@@ -3756,7 +3795,7 @@ public:
             FracSec fs;
             fs.usecs = usecs;
 
-            if(fs != expected)
+            if (fs != expected)
                 throw new AssertError("unittest failure", __FILE__, line);
         }
 
@@ -3765,14 +3804,14 @@ public:
 
         test(0, FracSec(0));
 
-        foreach(sign; [1, -1])
+        foreach (sign; [1, -1])
         {
             test(1 * sign, FracSec(10 * sign));
             test(999 * sign, FracSec(9990 * sign));
             test(999_999 * sign, FracSec(9_999_990 * sign));
         }
 
-        foreach(F; _TypeTuple!(const FracSec, immutable FracSec))
+        foreach (F; _TypeTuple!(const FracSec, immutable FracSec))
         {
             F fs = FracSec(1234567);
             static assert(!__traits(compiles, fs.usecs = 12), F.stringof);
@@ -3790,11 +3829,11 @@ public:
 
     unittest
     {
-        foreach(F; _TypeTuple!(FracSec, const FracSec, immutable FracSec))
+        foreach (F; _TypeTuple!(FracSec, const FracSec, immutable FracSec))
         {
             assert(FracSec(0).hnsecs == 0);
 
-            foreach(sign; [1, -1])
+            foreach (sign; [1, -1])
             {
                 assert((cast(F)FracSec(1 * sign)).hnsecs == 1 * sign);
                 assert((cast(F)FracSec(999 * sign)).hnsecs == 999 * sign);
@@ -3828,7 +3867,7 @@ public:
             FracSec fs;
             fs.hnsecs = hnsecs;
 
-            if(fs != expected)
+            if (fs != expected)
                 throw new AssertError("unittest failure", __FILE__, line);
         }
 
@@ -3837,7 +3876,7 @@ public:
 
         test(0, FracSec(0));
 
-        foreach(sign; [1, -1])
+        foreach (sign; [1, -1])
         {
             test(1 * sign, FracSec(1 * sign));
             test(999 * sign, FracSec(999 * sign));
@@ -3845,7 +3884,7 @@ public:
             test(9_999_999 * sign, FracSec(9_999_999 * sign));
         }
 
-        foreach(F; _TypeTuple!(const FracSec, immutable FracSec))
+        foreach (F; _TypeTuple!(const FracSec, immutable FracSec))
         {
             F fs = FracSec(1234567);
             static assert(!__traits(compiles, fs.hnsecs = 12), F.stringof);
@@ -3866,11 +3905,11 @@ public:
 
     unittest
     {
-        foreach(F; _TypeTuple!(FracSec, const FracSec, immutable FracSec))
+        foreach (F; _TypeTuple!(FracSec, const FracSec, immutable FracSec))
         {
             assert(FracSec(0).nsecs == 0);
 
-            foreach(sign; [1, -1])
+            foreach (sign; [1, -1])
             {
                 assert((cast(F)FracSec(1 * sign)).nsecs == 100 * sign);
                 assert((cast(F)FracSec(999 * sign)).nsecs == 99_900 * sign);
@@ -3908,7 +3947,7 @@ public:
             FracSec fs;
             fs.nsecs = nsecs;
 
-            if(fs != expected)
+            if (fs != expected)
                 throw new AssertError("unittest failure", __FILE__, line);
         }
 
@@ -3917,7 +3956,7 @@ public:
 
         test(0, FracSec(0));
 
-        foreach(sign; [1, -1])
+        foreach (sign; [1, -1])
         {
             test(1 * sign, FracSec(0));
             test(10 * sign, FracSec(0));
@@ -3927,7 +3966,7 @@ public:
             test(9_999_999 * sign, FracSec(99_999 * sign));
         }
 
-        foreach(F; _TypeTuple!(const FracSec, immutable FracSec))
+        foreach (F; _TypeTuple!(const FracSec, immutable FracSec))
         {
             F fs = FracSec(1234567);
             static assert(!__traits(compiles, fs.nsecs = 12), F.stringof);
@@ -3982,15 +4021,15 @@ private:
         immutable milliseconds = splitUnitsFromHNSecs!"msecs"(hnsecs);
         immutable microseconds = splitUnitsFromHNSecs!"usecs"(hnsecs);
 
-        if(hnsecs == 0)
+        if (hnsecs == 0)
         {
-            if(microseconds == 0)
+            if (microseconds == 0)
             {
-                if(milliseconds == 0)
+                if (milliseconds == 0)
                     return "0 hnsecs";
                 else
                 {
-                    if(milliseconds == 1)
+                    if (milliseconds == 1)
                         return "1 ms";
                     else
                     {
@@ -4004,7 +4043,7 @@ private:
             {
                 immutable fullMicroseconds = getUnitsFromHNSecs!"usecs"(_hnsecs);
 
-                if(fullMicroseconds == 1)
+                if (fullMicroseconds == 1)
                     return "1 μs";
                 else
                 {
@@ -4016,7 +4055,7 @@ private:
         }
         else
         {
-            if(_hnsecs == 1)
+            if (_hnsecs == 1)
                 return "1 hnsec";
             else
             {
@@ -4029,7 +4068,7 @@ private:
 
     unittest
     {
-        foreach(sign; [1 , -1])
+        foreach (sign; [1 , -1])
         {
             immutable signStr = sign == 1 ? "" : "-";
 
@@ -4093,7 +4132,7 @@ private:
       +/
     static void _enforceValid(int hnsecs)
     {
-        if(!_valid(hnsecs))
+        if (!_valid(hnsecs))
             throw new TimeException("FracSec must be greater than equal to 0 and less than 1 second.");
     }
 
@@ -4110,7 +4149,7 @@ private:
 
     invariant()
     {
-        if(!_valid(_hnsecs))
+        if (!_valid(_hnsecs))
             throw new AssertError("Invariant Failure: hnsecs [" ~ signedToTempString(_hnsecs, 10).idup ~ "]", __FILE__, __LINE__);
     }
 
@@ -4207,7 +4246,7 @@ private:
     Template to help with converting between time units.
  +/
 template hnsecsPer(string units)
-    if(units == "weeks" ||
+    if (units == "weeks" ||
        units == "days" ||
        units == "hours" ||
        units == "minutes" ||
@@ -4216,21 +4255,21 @@ template hnsecsPer(string units)
        units == "usecs" ||
        units == "hnsecs")
 {
-    static if(units == "hnsecs")
+    static if (units == "hnsecs")
         enum hnsecsPer = 1L;
-    else static if(units == "usecs")
+    else static if (units == "usecs")
         enum hnsecsPer = 10L;
-    else static if(units == "msecs")
+    else static if (units == "msecs")
         enum hnsecsPer = 1000 * hnsecsPer!"usecs";
-    else static if(units == "seconds")
+    else static if (units == "seconds")
         enum hnsecsPer = 1000 * hnsecsPer!"msecs";
-    else static if(units == "minutes")
+    else static if (units == "minutes")
         enum hnsecsPer = 60 * hnsecsPer!"seconds";
-    else static if(units == "hours")
+    else static if (units == "hours")
         enum hnsecsPer = 60 * hnsecsPer!"minutes";
-    else static if(units == "days")
+    else static if (units == "days")
         enum hnsecsPer = 24 * hnsecsPer!"hours";
-    else static if(units == "weeks")
+    else static if (units == "weeks")
         enum hnsecsPer = 7 * hnsecsPer!"days";
 }
 
@@ -4248,7 +4287,7 @@ template hnsecsPer(string units)
         The number of the given units from converting hnsecs to those units.
   +/
 long splitUnitsFromHNSecs(string units)(ref long hnsecs) @safe pure nothrow @nogc
-    if(units == "weeks" ||
+    if (units == "weeks" ||
        units == "days" ||
        units == "hours" ||
        units == "minutes" ||
@@ -4292,7 +4331,7 @@ unittest
         The split out value.
   +/
 long getUnitsFromHNSecs(string units)(long hnsecs) @safe pure nothrow @nogc
-    if(units == "weeks" ||
+    if (units == "weeks" ||
        units == "days" ||
        units == "hours" ||
        units == "minutes" ||
@@ -4329,7 +4368,7 @@ unittest
         The remaining hnsecs.
   +/
 long removeUnitsFromHNSecs(string units)(long hnsecs) @safe pure nothrow @nogc
-    if(units == "weeks" ||
+    if (units == "weeks" ||
        units == "days" ||
        units == "hours" ||
        units == "minutes" ||
@@ -4358,18 +4397,18 @@ unittest
   +/
 bool allAreAcceptedUnits(acceptedUnits...)(string[] units...)
 {
-    foreach(unit; units)
+    foreach (unit; units)
     {
         bool found = false;
-        foreach(acceptedUnit; acceptedUnits)
+        foreach (acceptedUnit; acceptedUnits)
         {
-            if(unit == acceptedUnit)
+            if (unit == acceptedUnit)
             {
                 found = true;
                 break;
             }
         }
-        if(!found)
+        if (!found)
             return false;
     }
     return true;
@@ -4392,15 +4431,15 @@ unittest
   +/
 bool unitsAreInDescendingOrder(string[] units...)
 {
-    if(units.length <= 1)
+    if (units.length <= 1)
         return true;
 
     immutable string[] timeStrings = ["nsecs", "hnsecs", "usecs", "msecs", "seconds",
                                       "minutes", "hours", "days", "weeks", "months", "years"];
     size_t currIndex = 42;
-    foreach(i, timeStr; timeStrings)
+    foreach (i, timeStr; timeStrings)
     {
-        if(units[0] == timeStr)
+        if (units[0] == timeStr)
         {
             currIndex = i;
             break;
@@ -4408,12 +4447,12 @@ bool unitsAreInDescendingOrder(string[] units...)
     }
     assert(currIndex != 42);
 
-    foreach(unit; units[1 .. $])
+    foreach (unit; units[1 .. $])
     {
         size_t nextIndex = 42;
-        foreach(i, timeStr; timeStrings)
+        foreach (i, timeStr; timeStrings)
         {
-            if(unit == timeStr)
+            if (unit == timeStr)
             {
                 nextIndex = i;
                 break;
@@ -4421,7 +4460,7 @@ bool unitsAreInDescendingOrder(string[] units...)
         }
         assert(nextIndex != 42);
 
-        if(currIndex <= nextIndex)
+        if (currIndex <= nextIndex)
             return false;
         currIndex = nextIndex;
     }
@@ -4444,7 +4483,7 @@ unittest
     The time units which are one step larger than the given units.
   +/
 template nextLargerTimeUnits(string units)
-    if(units == "days" ||
+    if (units == "days" ||
        units == "hours" ||
        units == "minutes" ||
        units == "seconds" ||
@@ -4453,21 +4492,21 @@ template nextLargerTimeUnits(string units)
        units == "hnsecs" ||
        units == "nsecs")
 {
-    static if(units == "days")
+    static if (units == "days")
         enum nextLargerTimeUnits = "weeks";
-    else static if(units == "hours")
+    else static if (units == "hours")
         enum nextLargerTimeUnits = "days";
-    else static if(units == "minutes")
+    else static if (units == "minutes")
         enum nextLargerTimeUnits = "hours";
-    else static if(units == "seconds")
+    else static if (units == "seconds")
         enum nextLargerTimeUnits = "minutes";
-    else static if(units == "msecs")
+    else static if (units == "msecs")
         enum nextLargerTimeUnits = "seconds";
-    else static if(units == "usecs")
+    else static if (units == "usecs")
         enum nextLargerTimeUnits = "msecs";
-    else static if(units == "hnsecs")
+    else static if (units == "hnsecs")
         enum nextLargerTimeUnits = "usecs";
-    else static if(units == "nsecs")
+    else static if (units == "nsecs")
         enum nextLargerTimeUnits = "hnsecs";
     else
         static assert(0, "Broken template constraint");
@@ -4496,18 +4535,18 @@ unittest
     static assert(!__traits(compiles, nextLargerTimeUnits!"years"));
 }
 
-version(Darwin)
+version (Darwin)
 long machTicksPerSecond()
 {
     // Be optimistic that ticksPerSecond (1e9*denom/numer) is integral. So far
     // so good on Darwin based platforms OS X, iOS.
     import core.internal.abort : abort;
     mach_timebase_info_data_t info;
-    if(mach_timebase_info(&info) != 0)
+    if (mach_timebase_info(&info) != 0)
         abort("Failed in mach_timebase_info().");
 
     long scaledDenom = 1_000_000_000L * info.denom;
-    if(scaledDenom % info.numer != 0)
+    if (scaledDenom % info.numer != 0)
         abort("Non integral ticksPerSecond from mach_timebase_info.");
     return scaledDenom / info.numer;
 }
@@ -4526,11 +4565,11 @@ double _abs(double val) @safe pure nothrow @nogc
 }
 
 
-version(unittest)
+version (unittest)
 string doubleToString(double value) @safe pure nothrow
 {
     string result;
-    if(value < 0 && cast(long)value == 0)
+    if (value < 0 && cast(long)value == 0)
         result = "-0";
     else
         result = signedToTempString(cast(long)value, 10).idup;
@@ -4557,7 +4596,7 @@ unittest
     assert(aStr == "-0.337", aStr);
 }
 
-version(unittest) const(char)* numToStringz()(long value) @trusted pure nothrow
+version (unittest) const(char)* numToStringz()(long value) @trusted pure nothrow
 {
     return (signedToTempString(value, 10) ~ "\0").ptr;
 }
@@ -4571,7 +4610,7 @@ template _TypeTuple(TList...)
 
 
 /+ An adjusted copy of std.exception.assertThrown. +/
-version(unittest) void _assertThrown(T : Throwable = Exception, E)
+version (unittest) void _assertThrown(T : Throwable = Exception, E)
                                     (lazy E expression,
                                      string msg = null,
                                      string file = __FILE__,
@@ -4581,10 +4620,10 @@ version(unittest) void _assertThrown(T : Throwable = Exception, E)
 
     try
         expression();
-    catch(T t)
+    catch (T t)
         thrown = true;
 
-    if(!thrown)
+    if (!thrown)
     {
         immutable tail = msg.length == 0 ? "." : ": " ~ msg;
 
@@ -4605,22 +4644,22 @@ unittest
 
     try
         _assertThrown!Exception(throwEx(new Exception("It's an Exception")));
-    catch(AssertError)
+    catch (AssertError)
         assert(0);
 
     try
         _assertThrown!Exception(throwEx(new Exception("It's an Exception")), "It's a message");
-    catch(AssertError)
+    catch (AssertError)
         assert(0);
 
     try
         _assertThrown!AssertError(throwEx(new AssertError("It's an AssertError", __FILE__, __LINE__)));
-    catch(AssertError)
+    catch (AssertError)
         assert(0);
 
     try
         _assertThrown!AssertError(throwEx(new AssertError("It's an AssertError", __FILE__, __LINE__)), "It's a message");
-    catch(AssertError)
+    catch (AssertError)
         assert(0);
 
 
@@ -4628,7 +4667,7 @@ unittest
         bool thrown = false;
         try
             _assertThrown!Exception(nothrowEx());
-        catch(AssertError)
+        catch (AssertError)
             thrown = true;
 
         assert(thrown);
@@ -4638,7 +4677,7 @@ unittest
         bool thrown = false;
         try
             _assertThrown!Exception(nothrowEx(), "It's a message");
-        catch(AssertError)
+        catch (AssertError)
             thrown = true;
 
         assert(thrown);
@@ -4648,7 +4687,7 @@ unittest
         bool thrown = false;
         try
             _assertThrown!AssertError(nothrowEx());
-        catch(AssertError)
+        catch (AssertError)
             thrown = true;
 
         assert(thrown);
@@ -4658,7 +4697,7 @@ unittest
         bool thrown = false;
         try
             _assertThrown!AssertError(nothrowEx(), "It's a message");
-        catch(AssertError)
+        catch (AssertError)
             thrown = true;
 
         assert(thrown);
@@ -4666,27 +4705,27 @@ unittest
 }
 
 
-version(unittest) void assertApprox(D, E)(D actual,
+version (unittest) void assertApprox(D, E)(D actual,
                                           E lower,
                                           E upper,
                                           string msg = "unittest failure",
                                           size_t line = __LINE__)
-    if(is(D : const Duration) && is(E : const Duration))
+    if (is(D : const Duration) && is(E : const Duration))
 {
-    if(actual < lower)
+    if (actual < lower)
         throw new AssertError(msg ~ ": lower: " ~ actual.toString(), __FILE__, line);
-    if(actual > upper)
+    if (actual > upper)
         throw new AssertError(msg ~ ": upper: " ~ actual.toString(), __FILE__, line);
 }
 
-version(unittest) void assertApprox(D, E)(D actual,
+version (unittest) void assertApprox(D, E)(D actual,
                                           E lower,
                                           E upper,
                                           string msg = "unittest failure",
                                           size_t line = __LINE__)
-    if(is(D : const TickDuration) && is(E : const TickDuration))
+    if (is(D : const TickDuration) && is(E : const TickDuration))
 {
-    if(actual.length < lower.length || actual.length > upper.length)
+    if (actual.length < lower.length || actual.length > upper.length)
     {
         throw new AssertError(msg ~ (": [" ~ signedToTempString(lower.length, 10) ~ "] [" ~
                               signedToTempString(actual.length, 10) ~ "] [" ~
@@ -4695,24 +4734,24 @@ version(unittest) void assertApprox(D, E)(D actual,
     }
 }
 
-version(unittest) void assertApprox(MT)(MT actual,
+version (unittest) void assertApprox(MT)(MT actual,
                                         MT lower,
                                         MT upper,
                                         string msg = "unittest failure",
                                         size_t line = __LINE__)
-    if(is(MT == MonoTimeImpl!type, ClockType type))
+    if (is(MT == MonoTimeImpl!type, ClockType type))
 {
     assertApprox(actual._ticks, lower._ticks, upper._ticks, msg, line);
 }
 
-version(unittest) void assertApprox()(long actual,
+version (unittest) void assertApprox()(long actual,
                                       long lower,
                                       long upper,
                                       string msg = "unittest failure",
                                       size_t line = __LINE__)
 {
-    if(actual < lower)
+    if (actual < lower)
         throw new AssertError(msg ~ ": lower: " ~ signedToTempString(actual, 10).idup, __FILE__, line);
-    if(actual > upper)
+    if (actual > upper)
         throw new AssertError(msg ~ ": upper: " ~ signedToTempString(actual, 10).idup, __FILE__, line);
 }

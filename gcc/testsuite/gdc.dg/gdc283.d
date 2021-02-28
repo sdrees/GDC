@@ -1,4 +1,5 @@
-// { dg-do run { target arm*-*-* i?86-*-* x86_64-*-* } }
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=283
+// { dg-do run { target hw } }
 
 struct Impl
 {

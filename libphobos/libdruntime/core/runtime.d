@@ -41,9 +41,58 @@ extern(C) int rt_init();
 /// C interface for Runtime.terminate, returns 1/0 instead of bool
 extern(C) int rt_term();
 
+/**
+ * This type is returned by the module unit test handler to indicate testing
+ * results.
+ */
+struct UnitTestResult
+{
+    /**
+     * Number of modules which were tested
+     */
+    size_t executed;
+
+    /**
+     * Number of modules passed the unittests
+     */
+    size_t passed;
+
+    /**
+     * Should the main function be run or not? This is ignored if any tests
+     * failed.
+     */
+    bool runMain;
+
+    /**
+     * Should we print a summary of the results?
+     */
+    bool summarize;
+
+    /**
+     * Simple check for whether execution should continue after unit tests
+     * have been run. Works with legacy code that expected a bool return.
+     *
+     * Returns:
+     *    true if execution should continue after testing is complete, false if
+     *    not.
+     */
+    bool opCast(T : bool)() const
+    {
+        return runMain && (executed == passed);
+    }
+
+    /// Simple return code that says unit tests pass, and main should be run
+    enum UnitTestResult pass = UnitTestResult(0, 0, true, false);
+    /// Simple return code that says unit tests failed.
+    enum UnitTestResult fail = UnitTestResult(1, 0, false, false);
+}
+
+/// Legacy module unit test handler
+alias bool function() ModuleUnitTester;
+/// Module unit test handler
+alias UnitTestResult function() ExtendedModuleUnitTester;
 private
 {
-    alias bool function() ModuleUnitTester;
     alias bool function(Object) CollectHandler;
     alias Throwable.TraceInfo function( void* ptr ) TraceHandler;
 
@@ -304,26 +353,39 @@ struct Runtime
      * value of this routine indicates to the runtime whether the tests ran
      * without error.
      *
+     * There are two options for handlers. The `bool` version is deprecated but
+     * will be kept for legacy support. Returning `true` from the handler is
+     * equivalent to returning `UnitTestResult.pass` from the extended version.
+     * Returning `false` from the handler is equivalent to returning
+     * `UnitTestResult.fail` from the extended version.
+     *
+     * See the documentation for `UnitTestResult` to see how you should set up
+     * the return structure.
+     *
+     * See the documentation for `runModuleUnitTests` for how the default
+     * algorithm works, or read the example below.
+     *
      * Params:
-     *  h = The new unit tester.  Set to null to use the default unit tester.
+     *  h = The new unit tester.  Set both to null to use the default unit
+     *  tester.
      *
      * Example:
      * ---------
-     * version (unittest) shared static this()
+     * shared static this()
      * {
      *     import core.runtime;
      *
-     *     Runtime.moduleUnitTester = &customModuleUnitTester;
+     *     Runtime.extendedModuleUnitTester = &customModuleUnitTester;
      * }
      *
-     * bool customModuleUnitTester()
+     * UnitTestResult customModuleUnitTester()
      * {
      *     import std.stdio;
      *
      *     writeln("Using customModuleUnitTester");
      *
      *     // Do the same thing as the default moduleUnitTester:
-     *     size_t failed = 0;
+     *     UnitTestResult result;
      *     foreach (m; ModuleInfo)
      *     {
      *         if (m)
@@ -332,45 +394,82 @@ struct Runtime
      *
      *             if (fp)
      *             {
+     *                 ++result.executed;
      *                 try
      *                 {
      *                     fp();
+     *                     ++result.passed;
      *                 }
      *                 catch (Throwable e)
      *                 {
      *                     writeln(e);
-     *                     failed++;
      *                 }
      *             }
      *         }
      *     }
-     *     return failed == 0;
+     *     if (result.executed != result.passed)
+     *     {
+     *         result.runMain = false;  // don't run main
+     *         result.summarize = true; // print failure
+     *     }
+     *     else
+     *     {
+     *         result.runMain = true;    // all UT passed
+     *         result.summarize = false; // be quiet about it.
+     *     }
+     *     return result;
      * }
      * ---------
      */
+    static @property void extendedModuleUnitTester( ExtendedModuleUnitTester h )
+    {
+        sm_extModuleUnitTester = h;
+    }
+
+    /// Ditto
     static @property void moduleUnitTester( ModuleUnitTester h )
     {
         sm_moduleUnitTester = h;
     }
 
-
     /**
-     * Gets the current module unit tester.
+     * Gets the current legacy module unit tester.
+     *
+     * This property should not be used, but is supported for legacy purposes.
+     *
+     * Note that if the extended unit test handler is set, this handler will
+     * be ignored.
      *
      * Returns:
-     *  The current module unit tester handler or null if none has been set.
+     *  The current legacy module unit tester handler or null if none has been
+     *  set.
      */
     static @property ModuleUnitTester moduleUnitTester()
     {
         return sm_moduleUnitTester;
     }
 
+    /**
+     * Gets the current module unit tester.
+     *
+     * This handler overrides any legacy module unit tester set by the
+     * moduleUnitTester property.
+     *
+     * Returns:
+     *  The current  module unit tester handler or null if none has been
+     *  set.
+     */
+    static @property ExtendedModuleUnitTester extendedModuleUnitTester()
+    {
+        return sm_extModuleUnitTester;
+    }
 
 private:
 
     // NOTE: This field will only ever be set in a static ctor and should
     //       never occur within any but the main thread, so it is safe to
     //       make it __gshared.
+    __gshared ExtendedModuleUnitTester sm_extModuleUnitTester = null;
     __gshared ModuleUnitTester sm_moduleUnitTester = null;
 }
 
@@ -444,32 +543,97 @@ extern (C) void profilegc_setlogfilename(string name);
 
 /**
  * This routine is called by the runtime to run module unit tests on startup.
- * The user-supplied unit tester will be called if one has been supplied,
+ * The user-supplied unit tester will be called if one has been set,
  * otherwise all unit tests will be run in sequence.
  *
+ * If the extended unittest handler is registered, this function returns the
+ * result from that handler directly.
+ *
+ * If a legacy boolean returning custom handler is used, `false` maps to
+ * `UnitTestResult.fail`, and `true` maps to `UnitTestResult.pass`. This was
+ * the original behavior of the unit testing system.
+ *
+ * If no unittest custom handlers are registered, the following algorithm is
+ * executed (the behavior can be affected by the `--DRT-testmode` switch
+ * below):
+ * 1. Run all unit tests, tracking tests executed and passes. For each that
+ *    fails, print the stack trace, and continue.
+ * 2. If there are no failures, set the summarize flag to false, and the
+ *    runMain flag to true.
+ * 3. If there are failures, set the summarize flag to true, and the runMain
+ *    flag to false.
+ *
+ * See the documentation for `UnitTestResult` for details on how the runtime
+ * treats the return value from this function.
+ *
+ * If the switch `--DRT-testmode` is passed to the executable, it can have
+ * one of 3 values:
+ * 1. "run-main": even if unit tests are run (and all pass), main is still run.
+ *    This is currently the default.
+ * 2. "test-or-main": any unit tests present will cause the program to
+ *    summarize the results and exit regardless of the result. This will be the
+ *    default in 2.080.
+ * 3. "test-only", the runtime will always summarize and never run main, even
+ *    if no tests are present.
+ *
+ * This command-line parameter does not affect custom unit test handlers.
+ *
  * Returns:
- *  true if execution should continue after testing is complete and false if
- *  not.  Default behavior is to return true.
+ *   A `UnitTestResult` struct indicating the result of running unit tests.
  */
-extern (C) bool runModuleUnitTests()
+extern (C) UnitTestResult runModuleUnitTests()
 {
     // backtrace
-    version(GNU)
+    version (GNU)
         import gcc.backtrace;
-    version( CRuntime_Glibc )
+    else version (CRuntime_Glibc)
         import core.sys.linux.execinfo;
-    else version( Darwin )
+    else version (Darwin)
         import core.sys.darwin.execinfo;
-    else version( FreeBSD )
+    else version (FreeBSD)
         import core.sys.freebsd.execinfo;
-    else version( NetBSD )
+    else version (NetBSD)
         import core.sys.netbsd.execinfo;
-    else version( Windows )
+    else version (DragonFlyBSD)
+        import core.sys.dragonflybsd.execinfo;
+    else version (Windows)
         import core.sys.windows.stacktrace;
-    else version( Solaris )
+    else version (Solaris)
         import core.sys.solaris.execinfo;
+    else version (CRuntime_UClibc)
+        import core.sys.linux.execinfo;
 
-    static if( __traits( compiles, new LibBacktrace(0) ) )
+    static if ( __traits( compiles, backtrace ) )
+    {
+        import core.sys.posix.signal; // segv handler
+
+        static extern (C) void unittestSegvHandler( int signum, siginfo_t* info, void* ptr ) nothrow
+        {
+            static enum MAXFRAMES = 128;
+            void*[MAXFRAMES]  callstack;
+            int               numframes;
+
+            numframes = backtrace( callstack.ptr, MAXFRAMES );
+            backtrace_symbols_fd( callstack.ptr, numframes, 2 );
+        }
+
+        sigaction_t action = void;
+        sigaction_t oldseg = void;
+        sigaction_t oldbus = void;
+
+        (cast(byte*) &action)[0 .. action.sizeof] = 0;
+        sigfillset( &action.sa_mask ); // block other signals
+        action.sa_flags = SA_SIGINFO | SA_RESETHAND;
+        action.sa_sigaction = &unittestSegvHandler;
+        sigaction( SIGSEGV, &action, &oldseg );
+        sigaction( SIGBUS, &action, &oldbus );
+        scope( exit )
+        {
+            sigaction( SIGSEGV, &oldseg, null );
+            sigaction( SIGBUS, &oldbus, null );
+        }
+    }
+    else static if ( __traits( compiles, new LibBacktrace(0) ) )
     {
         import core.sys.posix.signal; // segv handler
 
@@ -511,63 +675,63 @@ extern (C) bool runModuleUnitTests()
             sigaction( SIGBUS, &oldbus, null );
         }
     }
-    else static if( __traits( compiles, backtrace ) )
+
+    if (Runtime.sm_extModuleUnitTester !is null)
+        return Runtime.sm_extModuleUnitTester();
+    else if (Runtime.sm_moduleUnitTester !is null)
+        return Runtime.sm_moduleUnitTester() ? UnitTestResult.pass : UnitTestResult.fail;
+    UnitTestResult results;
+    foreach ( m; ModuleInfo )
     {
-        import core.sys.posix.signal; // segv handler
-
-        static extern (C) void unittestSegvHandler( int signum, siginfo_t* info, void* ptr ) nothrow
+        if ( m )
         {
-            static enum MAXFRAMES = 128;
-            void*[MAXFRAMES]  callstack;
-            int               numframes;
+            auto fp = m.unitTest;
 
-            numframes = backtrace( callstack.ptr, MAXFRAMES );
-            backtrace_symbols_fd( callstack.ptr, numframes, 2 );
-        }
-
-        sigaction_t action = void;
-        sigaction_t oldseg = void;
-        sigaction_t oldbus = void;
-
-        (cast(byte*) &action)[0 .. action.sizeof] = 0;
-        sigfillset( &action.sa_mask ); // block other signals
-        action.sa_flags = SA_SIGINFO | SA_RESETHAND;
-        action.sa_sigaction = &unittestSegvHandler;
-        sigaction( SIGSEGV, &action, &oldseg );
-        sigaction( SIGBUS, &action, &oldbus );
-        scope( exit )
-        {
-            sigaction( SIGSEGV, &oldseg, null );
-            sigaction( SIGBUS, &oldbus, null );
-        }
-    }
-
-    if( Runtime.sm_moduleUnitTester is null )
-    {
-        size_t failed = 0;
-        foreach( m; ModuleInfo )
-        {
-            if( m )
+            if ( fp )
             {
-                auto fp = m.unitTest;
-
-                if( fp )
+                ++results.executed;
+                try
                 {
-                    try
-                    {
-                        fp();
-                    }
-                    catch( Throwable e )
-                    {
-                        _d_print_throwable(e);
-                        failed++;
-                    }
+                    fp();
+                    ++results.passed;
+                }
+                catch ( Throwable e )
+                {
+                    _d_print_throwable(e);
                 }
             }
         }
-        return failed == 0;
     }
-    return Runtime.sm_moduleUnitTester();
+
+    import core.internal.parseoptions : rt_configOption;
+
+    if (results.passed != results.executed)
+    {
+        // by default, we always print a summary if there are failures.
+        results.summarize = true;
+    }
+    else switch (rt_configOption("testmode", null, false))
+    {
+    case "":
+        // By default, run main. Switch to only doing unit tests in 2.080
+    case "run-main":
+        results.runMain = true;
+        break;
+    case "test-only":
+        // Never run main, always summarize
+        results.summarize = true;
+        break;
+    case "test-or-main":
+        // only run main if there were no tests. Only summarize if we are not
+        // running main.
+        results.runMain = (results.executed == 0);
+        results.summarize = !results.runMain;
+        break;
+    default:
+        throw new Error("Unknown --DRT-testmode option: " ~ rt_configOption("testmode", null, false));
+    }
+
+    return results;
 }
 
 
@@ -582,20 +746,24 @@ extern (C) bool runModuleUnitTests()
 Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
 {
     // backtrace
-    version(GNU)
+    version (GNU)
         import gcc.backtrace;
-    version( CRuntime_Glibc )
+    else version (CRuntime_Glibc)
         import core.sys.linux.execinfo;
-    else version( Darwin )
+    else version (Darwin)
         import core.sys.darwin.execinfo;
-    else version( FreeBSD )
+    else version (FreeBSD)
         import core.sys.freebsd.execinfo;
-    else version( NetBSD )
+    else version (NetBSD)
         import core.sys.netbsd.execinfo;
-    else version( Windows )
+    else version (DragonFlyBSD)
+        import core.sys.dragonflybsd.execinfo;
+    else version (Windows)
         import core.sys.windows.stacktrace;
-    else version( Solaris )
+    else version (Solaris)
         import core.sys.solaris.execinfo;
+    else version (CRuntime_UClibc)
+        import core.sys.linux.execinfo;
 
     // avoid recursive GC calls in finalizer, trace handlers should be made @nogc instead
     import core.memory : gc_inFinalizer;
@@ -603,23 +771,7 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
         return null;
 
     //printf("runtime.defaultTraceHandler()\n");
-    static if( __traits( compiles, new LibBacktrace(0) ) )
-    {
-        version(Posix)
-        {
-            static enum FIRSTFRAME = 4;
-        }
-        else version (Win64)
-        {
-            static enum FIRSTFRAME = 4;
-        }
-        else
-        {
-            static enum FIRSTFRAME = 0;
-        }
-        return new LibBacktrace(FIRSTFRAME);
-    }
-    else static if( __traits( compiles, backtrace ) )
+    static if ( __traits( compiles, backtrace ) )
     {
         import core.demangle;
         import core.stdc.stdlib : free;
@@ -634,10 +786,10 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
                 {
                     static void** getBasePtr()
                     {
-                        version( D_InlineAsm_X86 )
+                        version (D_InlineAsm_X86)
                             asm { naked; mov EAX, EBP; ret; }
                         else
-                        version( D_InlineAsm_X86_64 )
+                        version (D_InlineAsm_X86_64)
                             asm { naked; mov RAX, RBP; ret; }
                         else
                             return null;
@@ -647,11 +799,11 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
                     auto  stackBottom = cast(void**) thread_stackBottom();
                     void* dummy;
 
-                    if( stackTop && &dummy < stackTop && stackTop < stackBottom )
+                    if ( stackTop && &dummy < stackTop && stackTop < stackBottom )
                     {
                         auto stackPtr = stackTop;
 
-                        for( numframes = 0; stackTop <= stackPtr &&
+                        for ( numframes = 0; stackTop <= stackPtr &&
                                             stackPtr < stackBottom &&
                                             numframes < MAXFRAMES; )
                         {
@@ -674,7 +826,7 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
 
             override int opApply( scope int delegate(ref size_t, ref const(char[])) dg ) const
             {
-                version(Posix)
+                version (Posix)
                 {
                     // NOTE: The first 4 frames with the current implementation are
                     //       inside core.runtime and the object code, so eliminate
@@ -683,7 +835,7 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
                     //       mangled function names.
                     enum FIRSTFRAME = 4;
                 }
-                else version(Windows)
+                else version (Windows)
                 {
                     // NOTE: On Windows, the number of frames to exclude is based on
                     //       whether the exception is user or system-generated, so
@@ -692,8 +844,10 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
                     enum FIRSTFRAME = 0;
                 }
 
-                version(linux) enum enableDwarf = true;
-                else version(FreeBSD) enum enableDwarf = true;
+                version (linux) enum enableDwarf = true;
+                else version (FreeBSD) enum enableDwarf = true;
+                else version (DragonFlyBSD) enum enableDwarf = true;
+                else version (Darwin) enum enableDwarf = true;
                 else enum enableDwarf = false;
 
                 static if (enableDwarf)
@@ -723,14 +877,14 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
                     scope(exit) free(cast(void*) framelist);
 
                     int ret = 0;
-                    for( int i = FIRSTFRAME; i < numframes; ++i )
+                    for ( int i = FIRSTFRAME; i < numframes; ++i )
                     {
                         char[4096] fixbuf;
                         auto buf = framelist[i][0 .. strlen(framelist[i])];
                         auto pos = cast(size_t)(i - FIRSTFRAME);
                         buf = fixline( buf, fixbuf );
                         ret = dg( pos, buf );
-                        if( ret )
+                        if ( ret )
                             break;
                     }
                     return ret;
@@ -741,7 +895,7 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
             override string toString() const
             {
                 string buf;
-                foreach( i, line; this )
+                foreach ( i, line; this )
                     buf ~= i ? "\n" ~ line : line;
                 return buf;
             }
@@ -755,28 +909,28 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
             const(char)[] fixline( const(char)[] buf, return ref char[4096] fixbuf ) const
             {
                 size_t symBeg, symEnd;
-                version( Darwin )
+                version (Darwin)
                 {
                     // format is:
                     //  1  module    0x00000000 D6module4funcAFZv + 0
-                    for( size_t i = 0, n = 0; i < buf.length; i++ )
+                    for ( size_t i = 0, n = 0; i < buf.length; i++ )
                     {
-                        if( ' ' == buf[i] )
+                        if ( ' ' == buf[i] )
                         {
                             n++;
-                            while( i < buf.length && ' ' == buf[i] )
+                            while ( i < buf.length && ' ' == buf[i] )
                                 i++;
-                            if( 3 > n )
+                            if ( 3 > n )
                                 continue;
                             symBeg = i;
-                            while( i < buf.length && ' ' != buf[i] )
+                            while ( i < buf.length && ' ' != buf[i] )
                                 i++;
                             symEnd = i;
                             break;
                         }
                     }
                 }
-                else version( CRuntime_Glibc )
+                else version (CRuntime_Glibc)
                 {
                     // format is:  module(_D6module4funcAFZv) [0x00000000]
                     // or:         module(_D6module4funcAFZv+0x78) [0x00000000]
@@ -787,43 +941,55 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
                     if (pptr && pptr < eptr)
                         eptr = pptr;
 
-                    if( bptr++ && eptr )
+                    if ( bptr++ && eptr )
                     {
                         symBeg = bptr - buf.ptr;
                         symEnd = eptr - buf.ptr;
                     }
                 }
-                else version( FreeBSD )
+                else version (FreeBSD)
                 {
                     // format is: 0x00000000 <_D6module4funcAFZv+0x78> at module
                     auto bptr = cast(char*) memchr( buf.ptr, '<', buf.length );
                     auto eptr = cast(char*) memchr( buf.ptr, '+', buf.length );
 
-                    if( bptr++ && eptr )
+                    if ( bptr++ && eptr )
                     {
                         symBeg = bptr - buf.ptr;
                         symEnd = eptr - buf.ptr;
                     }
                 }
-                else version( NetBSD )
+                else version (NetBSD)
                 {
                     // format is: 0x00000000 <_D6module4funcAFZv+0x78> at module
                     auto bptr = cast(char*) memchr( buf.ptr, '<', buf.length );
                     auto eptr = cast(char*) memchr( buf.ptr, '+', buf.length );
 
-                    if( bptr++ && eptr )
+                    if ( bptr++ && eptr )
                     {
                         symBeg = bptr - buf.ptr;
                         symEnd = eptr - buf.ptr;
                     }
                 }
-                else version( Solaris )
+                else version (DragonFlyBSD)
+                {
+                    // format is: 0x00000000 <_D6module4funcAFZv+0x78> at module
+                    auto bptr = cast(char*) memchr( buf.ptr, '<', buf.length );
+                    auto eptr = cast(char*) memchr( buf.ptr, '+', buf.length );
+
+                    if ( bptr++ && eptr )
+                    {
+                        symBeg = bptr - buf.ptr;
+                        symEnd = eptr - buf.ptr;
+                    }
+                }
+                else version (Solaris)
                 {
                     // format is object'symbol+offset [pc]
                     auto bptr = cast(char*) memchr( buf.ptr, '\'', buf.length );
                     auto eptr = cast(char*) memchr( buf.ptr, '+', buf.length );
 
-                    if( bptr++ && eptr )
+                    if ( bptr++ && eptr )
                     {
                         symBeg = bptr - buf.ptr;
                         symEnd = eptr - buf.ptr;
@@ -871,7 +1037,7 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
 
         return new DefaultTraceInfo;
     }
-    else static if( __traits( compiles, new StackTrace(0, null) ) )
+    else static if ( __traits( compiles, new StackTrace(0, null) ) )
     {
         version (Win64)
         {
@@ -885,9 +1051,25 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
         auto s = new StackTrace(FIRSTFRAME, cast(CONTEXT*)ptr);
         return s;
     }
-    else static if( __traits( compiles, new UnwindBacktrace(0) ) )
+    else static if ( __traits( compiles, new LibBacktrace(0) ) )
     {
-        version(Posix)
+        version (Posix)
+        {
+            static enum FIRSTFRAME = 4;
+        }
+        else version (Win64)
+        {
+            static enum FIRSTFRAME = 4;
+        }
+        else
+        {
+            static enum FIRSTFRAME = 0;
+        }
+        return new LibBacktrace(FIRSTFRAME);
+    }
+    else static if ( __traits( compiles, new UnwindBacktrace(0) ) )
+    {
+        version (Posix)
         {
             static enum FIRSTFRAME = 5;
         }

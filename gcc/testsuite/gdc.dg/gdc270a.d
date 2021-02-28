@@ -1,4 +1,5 @@
-// Bug 270
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=270
+// { dg-do compile }
 
 module gdc270;
 

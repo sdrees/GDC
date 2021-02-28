@@ -1,4 +1,4 @@
-/* d-frontend.cc -- D frontend interface to the gcc backend.
+/* d-frontend.cc -- D frontend interface to the gcc back-end.
    Copyright (C) 2013-2018 Free Software Foundation, Inc.
 
 GCC is free software; you can redistribute it and/or modify
@@ -19,12 +19,17 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 
-#include "dfrontend/declaration.h"
-#include "dfrontend/module.h"
-#include "dfrontend/mtype.h"
-#include "dfrontend/scope.h"
-#include "dfrontend/statement.h"
-#include "dfrontend/target.h"
+#include "dmd/aggregate.h"
+#include "dmd/compiler.h"
+#include "dmd/declaration.h"
+#include "dmd/errors.h"
+#include "dmd/expression.h"
+#include "dmd/identifier.h"
+#include "dmd/module.h"
+#include "dmd/mtype.h"
+#include "dmd/scope.h"
+#include "dmd/statement.h"
+#include "dmd/target.h"
 
 #include "tree.h"
 #include "options.h"
@@ -38,65 +43,16 @@ along with GCC; see the file COPYING3.  If not see
 /* Implements the Global interface defined by the frontend.
    Used for managing the state of the current compilation.  */
 
-Global global;
-
 void
 Global::_init (void)
 {
-  this->mars_ext = "d";
-  this->hdr_ext  = "di";
-  this->doc_ext  = "html";
-  this->ddoc_ext = "ddoc";
-  this->json_ext = "json";
   this->obj_ext = "o";
 
   this->run_noext = true;
   this->version = "v"
 #include "verstr.h"
     ;
-
-  this->stdmsg = stderr;
-  this->errorLimit = flag_max_errors;
 }
-
-/* Start gagging. Return the current number of gagged errors.  */
-
-unsigned
-Global::startGagging (void)
-{
-  this->gag++;
-  return this->gaggedErrors;
-}
-
-/* End gagging, restoring the old gagged state.  Return true if errors
-   occured while gagged.  */
-
-bool
-Global::endGagging (unsigned oldGagged)
-{
-  bool anyErrs = (this->gaggedErrors != oldGagged);
-  this->gag--;
-
-  /* Restore the original state of gagged errors; set total errors
-     to be original errors + new ungagged errors.  */
-  this->errors -= (this->gaggedErrors - oldGagged);
-  this->gaggedErrors = oldGagged;
-
-  return anyErrs;
-}
-
-/* Increment the error count to record that an error has occured in the
-   current context.  An error message may or may not have been printed.  */
-
-void
-Global::increaseErrorCount (void)
-{
-  if (gag)
-    this->gaggedErrors++;
-
-  this->errors++;
-}
-
 
 /* Implements the Loc interface defined by the frontend.
    Used for keeping track of current file/line position in code.  */
@@ -124,18 +80,6 @@ Loc::toChars (void) const
     }
 
   return buf.extractString ();
-}
-
-bool
-Loc::equals (const Loc& loc)
-{
-  if (this->linnum != loc.linnum || this->charnum != loc.charnum)
-    return false;
-
-  if (!FileName::equals (this->filename, loc.filename))
-    return false;
-
-  return true;
 }
 
 
@@ -166,7 +110,7 @@ Port::memicmp (const char *s1, const char *s2, size_t n)
   return result;
 }
 
-/* Convert all characters in S to upper case.  */
+/* Convert all characters in S to uppercase.  */
 
 char *
 Port::strupr (char *s)
@@ -182,7 +126,7 @@ Port::strupr (char *s)
   return t;
 }
 
-/* Return true a if the real_t value from string BUFFER overflows
+/* Return true if the real_t value from string BUFFER overflows
    as a result of rounding down to float mode.  */
 
 bool
@@ -195,7 +139,7 @@ Port::isFloat32LiteralOutOfRange (const char *buffer)
   return r == Target::RealProperties::infinity;
 }
 
-/* Return true a if the real_t value from string BUFFER overflows
+/* Return true if the real_t value from string BUFFER overflows
    as a result of rounding down to double mode.  */
 
 bool
@@ -228,19 +172,6 @@ Port::readwordBE (void *buffer)
   return ((unsigned) p[0] << 8) | (unsigned) p[1];
 }
 
-/* Write a little-endian 32-bit VALUE to BUFFER.  */
-
-void
-Port::writelongLE (unsigned value, void *buffer)
-{
-    unsigned char *p = (unsigned char*) buffer;
-
-    p[0] = (unsigned) value;
-    p[1] = (unsigned) value >> 8;
-    p[2] = (unsigned) value >> 16;
-    p[3] = (unsigned) value >> 24;
-}
-
 /* Fetch a little-endian 32-bit value from BUFFER.  */
 
 unsigned
@@ -249,22 +180,9 @@ Port::readlongLE (void *buffer)
   unsigned char *p = (unsigned char*) buffer;
 
   return (((unsigned) p[3] << 24)
-          | ((unsigned) p[2] << 16)
-          | ((unsigned) p[1] << 8)
-          | (unsigned) p[0]);
-}
-
-/* Write a big-endian 32-bit VALUE to BUFFER.  */
-
-void
-Port::writelongBE (unsigned value, void *buffer)
-{
-    unsigned char *p = (unsigned char*) buffer;
-
-    p[0] = (unsigned) value >> 24;
-    p[1] = (unsigned) value >> 16;
-    p[2] = (unsigned) value >> 8;
-    p[3] = (unsigned) value;
+	  | ((unsigned) p[2] << 16)
+	  | ((unsigned) p[1] << 8)
+	  | (unsigned) p[0]);
 }
 
 /* Fetch a big-endian 32-bit value from BUFFER.  */
@@ -275,9 +193,9 @@ Port::readlongBE (void *buffer)
   unsigned char *p = (unsigned char*) buffer;
 
   return (((unsigned) p[0] << 24)
-          | ((unsigned) p[1] << 16)
-          | ((unsigned) p[2] << 8)
-          | (unsigned) p[3]);
+	  | ((unsigned) p[1] << 16)
+	  | ((unsigned) p[2] << 8)
+	  | (unsigned) p[3]);
 }
 
 /* Write an SZ-byte sized VALUE to BUFFER, ignoring endian-ness.  */
@@ -423,31 +341,169 @@ CTFloat::sprint (char *buffer, char fmt, real_t r)
 size_t
 CTFloat::hash (real_t r)
 {
-    return real_hash (&r.rv ());
+  return real_hash (&r.rv ());
 }
 
-/* Implements backend-specific interfaces used by the frontend.  */
+/* Implements the Compiler interface used by the frontend.  */
 
-/* Semantically analyze AsmStatement where SC is the scope.  */
+/* Generate C main() in response to seeing D main().  This used to be in
+   libdruntime, but contained a reference to _Dmain which didn't work when
+   druntime was made into a shared library and was linked to a program, such
+   as a C++ program, that didn't have a _Dmain.  */
 
-Statement *
-asmSemantic (AsmStatement *s, Scope *sc)
+void
+Compiler::genCmain (Scope *sc)
 {
-  sc->func->hasReturnExp |= 8;
-  return s;
+  static bool initialized = false;
+
+  if (initialized)
+    return;
+
+  /* The D code to be generated is provided by __entrypoint.di, try to load it,
+     but don't fail if unfound.  */
+  unsigned errors = global.startGagging ();
+  Module *m = Module::load (Loc (), NULL, Identifier::idPool ("__entrypoint"));
+
+  if (global.endGagging (errors))
+    m = NULL;
+
+  if (m != NULL)
+    {
+      m->importedFrom = m;
+      m->importAll (NULL);
+      dsymbolSemantic (m, NULL);
+      semantic2 (m, NULL);
+      semantic3 (m, NULL);
+      d_add_entrypoint_module (m, sc->_module);
+    }
+
+  initialized = true;
 }
 
-/* Determine return style of function - whether in registers or through a
-   hidden pointer to the caller's stack.  */
+/* Perform a reinterpret cast of EXPR to type TYPE for use in CTFE.
+   The front end should have already ensured that EXPR is a constant,
+   so we just lower the value to GCC and return the converted CST.  */
 
-RET
-retStyle (TypeFunction *)
+Expression *
+Compiler::paintAsType (Expression *expr, Type *type)
 {
-  /* Need the backend type to determine this, but this is called from the
-     frontend before semantic processing is finished.  An accurate value
-     is not currently needed anyway.  */
-  return RETstack;
+  /* We support up to 512-bit values.  */
+  unsigned char buffer[64];
+  tree cst;
+
+  Type *tb = type->toBasetype ();
+
+  if (expr->type->isintegral ())
+    cst = build_integer_cst (expr->toInteger (), build_ctype (expr->type));
+  else if (expr->type->isfloating ())
+    cst = build_float_cst (expr->toReal (), expr->type);
+  else if (expr->op == TOKarrayliteral)
+    {
+      /* Build array as VECTOR_CST, assumes EXPR is constant.  */
+      Expressions *elements = ((ArrayLiteralExp *) expr)->elements;
+      vec<constructor_elt, va_gc> *elms = NULL;
+
+      vec_safe_reserve (elms, elements->dim);
+      for (size_t i = 0; i < elements->dim; i++)
+	{
+	  Expression *e = (*elements)[i];
+	  if (e->type->isintegral ())
+	    {
+	      tree value = build_integer_cst (e->toInteger (),
+					      build_ctype (e->type));
+	      CONSTRUCTOR_APPEND_ELT (elms, size_int (i), value);
+	    }
+	  else if (e->type->isfloating ())
+	    {
+	      tree value = build_float_cst (e->toReal (), e->type);
+	      CONSTRUCTOR_APPEND_ELT (elms, size_int (i), value);
+	    }
+	  else
+	    gcc_unreachable ();
+	}
+
+      /* Build vector type.  */
+      int nunits = ((TypeSArray *) expr->type)->dim->toUInteger ();
+      Type *telem = expr->type->nextOf ();
+      tree vectype = build_vector_type (build_ctype (telem), nunits);
+
+      cst = build_vector_from_ctor (vectype, elms);
+    }
+  else
+    gcc_unreachable ();
+
+  /* Encode CST to buffer.  */
+  int len = native_encode_expr (cst, buffer, sizeof (buffer));
+
+  if (tb->ty == Tsarray)
+    {
+      /* Interpret value as a vector of the same size,
+	 then return the array literal.  */
+      int nunits = ((TypeSArray *) type)->dim->toUInteger ();
+      Type *elem = type->nextOf ();
+      tree vectype = build_vector_type (build_ctype (elem), nunits);
+
+      cst = native_interpret_expr (vectype, buffer, len);
+
+      Expression *e = d_eval_constant_expression (cst);
+      gcc_assert (e != NULL && e->op == TOKvector);
+
+      return ((VectorExp *) e)->e1;
+    }
+  else
+    {
+      /* Normal interpret cast.  */
+      cst = native_interpret_expr (build_ctype (type), buffer, len);
+
+      Expression *e = d_eval_constant_expression (cst);
+      gcc_assert (e != NULL);
+
+      return e;
+    }
 }
+
+/* Check imported module M for any special processing.
+   Modules we look out for are:
+    - object: For D runtime type information.
+    - gcc.builtins: For all gcc builtins.
+    - core.stdc.*: For all gcc library builtins.  */
+
+void
+Compiler::loadModule (Module *m)
+{
+  ModuleDeclaration *md = m->md;
+
+  if (!md || !md->id || !md->packages)
+    {
+      Identifier *id = (md && md->id) ? md->id : m->ident;
+      if (!strcmp (id->toChars (), "object"))
+	create_tinfo_types (m);
+    }
+  else if (md->packages->dim == 1)
+    {
+      if (!strcmp ((*md->packages)[0]->toChars (), "gcc")
+	  && !strcmp (md->id->toChars (), "builtins"))
+	d_build_builtins_module (m);
+    }
+  else if (md->packages->dim == 2)
+    {
+      if (!strcmp ((*md->packages)[0]->toChars (), "core")
+	  && !strcmp ((*md->packages)[1]->toChars (), "stdc"))
+	d_add_builtin_module (m);
+    }
+}
+
+/* A callback function that is called once an imported module is parsed.
+   If the callback returns true, then it tells the front-end that the
+   driver intends on compiling the import.  */
+
+bool
+Compiler::onImport (Module *)
+{
+  return false;
+}
+
+/* Implements back-end specific interfaces used by the frontend.  */
 
 /* Determine if function FD is a builtin one that we can evaluate in CTFE.  */
 
@@ -472,11 +528,12 @@ eval_builtin (Loc loc, FuncDeclaration *fd, Expressions *arguments)
     return NULL;
 
   tree decl = get_symbol_decl (fd);
-  gcc_assert (DECL_INTRINSIC_CODE (decl) != INTRINSIC_NONE);
+  gcc_assert (fndecl_built_in_p (decl)
+	      || DECL_INTRINSIC_CODE (decl) != INTRINSIC_NONE);
 
   TypeFunction *tf = (TypeFunction *) fd->type;
   Expression *e = NULL;
-  input_location = get_linemap (loc);
+  input_location = make_location_t (loc);
 
   tree result = d_build_call (tf, decl, NULL, arguments);
   result = fold (result);
@@ -489,54 +546,44 @@ eval_builtin (Loc loc, FuncDeclaration *fd, Expressions *arguments)
   return e;
 }
 
-/* Generate C main() in response to seeing D main().  This used to be in
-   libdruntime, but contained a reference to _Dmain which didn't work when
-   druntime was made into a shared library and was linked to a program, such
-   as a C++ program, that didn't have a _Dmain.  */
-
-void
-genCmain (Scope *sc)
-{
-  static bool initialized = false;
-
-  if (initialized)
-    return;
-
-  /* The D code to be generated is provided by __entrypoint.di, try to load it,
-     but don't fail if unfound.  */
-  unsigned errors = global.startGagging ();
-  Module *m = Module::load (Loc (), NULL, Identifier::idPool ("__entrypoint"));
-
-  if (global.endGagging (errors))
-    m = NULL;
-
-  if (m != NULL)
-    {
-      m->importedFrom = m;
-      m->importAll (NULL);
-      m->semantic (NULL);
-      m->semantic2 (NULL);
-      m->semantic3 (NULL);
-      d_add_entrypoint_module (m, sc->_module);
-    }
-
-  initialized = true;
-}
-
 /* Build and return typeinfo type for TYPE.  */
 
 Type *
-getTypeInfoType (Type *type, Scope *sc)
+getTypeInfoType (Loc loc, Type *type, Scope *sc)
 {
+  if (!global.params.useTypeInfo)
+    {
+      /* Even when compiling without RTTI we should still be able to evaluate
+	 TypeInfo at compile-time, just not at run-time.  */
+      if (!sc || !(sc->flags & SCOPEctfe))
+	{
+	  static int warned = 0;
+
+	  if (!warned)
+	    {
+	      error_at (make_location_t (loc),
+			"%<object.TypeInfo%> cannot be used with -fno-rtti");
+	      warned = 1;
+	    }
+	}
+    }
+
+  if (Type::dtypeinfo == NULL
+      || (Type::dtypeinfo->storage_class & STCtemp))
+    {
+      /* If TypeInfo has not been declared, warn about each location once.  */
+      static Loc warnloc;
+
+      if (!loc.equals (warnloc))
+	{
+	  error_at (make_location_t (loc),
+		    "%<object.TypeInfo%> could not be found, "
+		    "but is implicitly used");
+	  warnloc = loc;
+	}
+    }
+
   gcc_assert (type->ty != Terror);
   create_typeinfo (type, sc ? sc->_module->importedFrom : NULL);
   return type->vtinfo->type;
-}
-
-/* Return an inlined copy of a default argument for a function parameter.  */
-
-Expression *
-inlineCopy (Expression *e, Scope *)
-{
-  return e->copy ();
 }

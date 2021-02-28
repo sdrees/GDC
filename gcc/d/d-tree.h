@@ -61,7 +61,7 @@ typedef Array<Expression *> Expressions;
    0: LABEL_VARIABLE_CASE (in LABEL_DECL).
       DECL_BUILT_IN_CTFE (in FUNCTION_DECL).  */
 
-/* The kinds of scopes we recognise.  */
+/* The kinds of scopes we recognize.  */
 
 enum level_kind
 {
@@ -73,7 +73,7 @@ enum level_kind
   level_switch,		/* The scope for a switch statement.  */
   level_loop,		/* A for, do-while, or unrolled-loop block.  */
   level_with,		/* The scope for a with statement.  */
-  level_function,	/* The block representing an entire function.  */
+  level_function	/* The block representing an entire function.  */
 };
 
 /* List of codes for internally recognised compiler intrinsics.  */
@@ -93,11 +93,11 @@ enum intrinsic_code
 enum bc_kind
 {
   bc_break    = 0,
-  bc_continue = 1,
+  bc_continue = 1
 };
 
 /* The datatype used to implement D scope.  It is needed primarily to support
-   the backend, but also helps debugging information for local variables.  */
+   the back-end, but also helps debugging information for local variables.  */
 
 struct GTY((chain_next ("%h.level_chain"))) binding_level
 {
@@ -170,15 +170,15 @@ struct GTY(()) d_label_entry
 
 struct GTY(()) tree_frame_info
 {
-    struct tree_common common;
-    tree frame_type;
+  struct tree_common common;
+  tree frame_type;
 };
 
 /* True if the function creates a nested frame.  */
 #define FRAMEINFO_CREATES_FRAME(NODE) \
   (TREE_LANG_FLAG_0 (FUNCFRAME_INFO_CHECK (NODE)))
 
-/* True if the function has a static chain passed in it's DECL_ARGUMENTS.  */
+/* True if the function has a static chain passed in its DECL_ARGUMENTS.  */
 #define FRAMEINFO_STATIC_CHAIN(NODE) \
   (TREE_LANG_FLAG_1 (FUNCFRAME_INFO_CHECK (NODE)))
 
@@ -198,11 +198,12 @@ struct GTY(()) lang_identifier
   /* The identifier as the user sees it.  */
   tree pretty_ident;
 
-  /* The backend tree associated with this identifier.  */
+  /* The back-end tree associated with this identifier.  */
   tree decl_tree;
 
   /* The frontend Declaration associated with this identifier.  */
   Declaration * GTY((skip)) dsymbol;
+  AggregateDeclaration * GTY((skip)) daggregate;
 };
 
 #define IDENTIFIER_LANG_SPECIFIC(NODE) \
@@ -216,6 +217,9 @@ struct GTY(()) lang_identifier
 
 #define IDENTIFIER_DSYMBOL(NODE) \
   (IDENTIFIER_LANG_SPECIFIC (NODE)->dsymbol)
+
+#define IDENTIFIER_DAGGREGATE(NODE) \
+  (IDENTIFIER_LANG_SPECIFIC (NODE)->daggregate)
 
 /* Global state pertinent to the current function.  */
 
@@ -419,25 +423,31 @@ extern GTY(()) tree d_global_trees[DTI_MAX];
 #define vtable_entry_type		d_global_trees[DTI_VTABLE_ENTRY_TYPE]
 #define vtbl_ptr_type_node		d_global_trees[DTI_VTBL_PTR_TYPE]
 #define vtbl_interface_type_node	d_global_trees[DTI_VTBL_INTERFACE_TYPE]
-#define bool_type_node			d_global_trees[DTI_BOOL_TYPE]
-#define char8_type_node			d_global_trees[DTI_CHAR_TYPE]
-#define char16_type_node		d_global_trees[DTI_DCHAR_TYPE]
-#define char32_type_node		d_global_trees[DTI_WCHAR_TYPE]
-#define byte_type_node			d_global_trees[DTI_BYTE_TYPE]
-#define ubyte_type_node			d_global_trees[DTI_UBYTE_TYPE]
-#define short_type_node			d_global_trees[DTI_SHORT_TYPE]
-#define ushort_type_node		d_global_trees[DTI_USHORT_TYPE]
-#define int_type_node			d_global_trees[DTI_INT_TYPE]
-#define uint_type_node			d_global_trees[DTI_UINT_TYPE]
-#define long_type_node			d_global_trees[DTI_LONG_TYPE]
-#define ulong_type_node			d_global_trees[DTI_ULONG_TYPE]
-#define cent_type_node			d_global_trees[DTI_CENT_TYPE]
-#define ucent_type_node			d_global_trees[DTI_UCENT_TYPE]
+/* D built-in language types.  */
+#define d_bool_type			d_global_trees[DTI_BOOL_TYPE]
+#define d_byte_type			d_global_trees[DTI_BYTE_TYPE]
+#define d_ubyte_type			d_global_trees[DTI_UBYTE_TYPE]
+#define d_short_type			d_global_trees[DTI_SHORT_TYPE]
+#define d_ushort_type			d_global_trees[DTI_USHORT_TYPE]
+#define d_int_type			d_global_trees[DTI_INT_TYPE]
+#define d_uint_type			d_global_trees[DTI_UINT_TYPE]
+#define d_long_type			d_global_trees[DTI_LONG_TYPE]
+#define d_ulong_type			d_global_trees[DTI_ULONG_TYPE]
+#define d_cent_type			d_global_trees[DTI_CENT_TYPE]
+#define d_ucent_type			d_global_trees[DTI_UCENT_TYPE]
+/* Imaginary floating-point types.  */
 #define ifloat_type_node		d_global_trees[DTI_IFLOAT_TYPE]
 #define idouble_type_node		d_global_trees[DTI_IDOUBLE_TYPE]
 #define ireal_type_node			d_global_trees[DTI_IREAL_TYPE]
+/* UTF-8, 16 and 32 types.  */
+#define char8_type_node			d_global_trees[DTI_CHAR_TYPE]
+#define char16_type_node		d_global_trees[DTI_DCHAR_TYPE]
+#define char32_type_node		d_global_trees[DTI_WCHAR_TYPE]
+/* Empty record type used as placeholder when real type is unknown.  */
 #define unknown_type_node		d_global_trees[DTI_UNKNOWN_TYPE]
+/* Generic dynamic array type void[].  */
 #define array_type_node			d_global_trees[DTI_ARRAY_TYPE]
+/* Null initializer for dynamic arrays.  */
 #define null_array_node			d_global_trees[DTI_NULL_ARRAY]
 
 /* A prefix for internal variables, which are not user-visible.  */
@@ -458,10 +468,10 @@ enum libcall_fn
 #include "runtime.def"
 
 #undef DEF_D_RUNTIME
-  LIBCALL_LAST,
+  LIBCALL_LAST
 };
 
-/* Gate for when the D frontend make an early call into the codegen pass, such
+/* Gate for when the D frontend makes an early call into the codegen pass, such
    as when it requires target information or CTFE evaluation.  As full semantic
    may not be completed, we only want to build the superficial tree structure
    without finishing any decls or types.  */
@@ -485,14 +495,14 @@ extern Expression *d_eval_constant_expression (tree);
 extern void d_init_versions (void);
 
 /* In d-codegen.cc.  */
-extern location_t get_linemap (const Loc &);
+extern location_t make_location_t (const Loc &);
 extern tree d_decl_context (Dsymbol *);
 extern tree copy_aggregate_type (tree);
 extern bool declaration_reference_p (Declaration *);
 extern tree declaration_type (Declaration *);
 extern bool argument_reference_p (Parameter *);
 extern tree type_passed_as (Parameter *);
-extern tree build_integer_cst (dinteger_t, tree = int_type_node);
+extern tree build_integer_cst (dinteger_t, tree = d_int_type);
 extern tree build_float_cst (const real_t &, Type *);
 extern tree d_array_length (tree);
 extern tree d_array_ptr (tree);
@@ -520,7 +530,6 @@ extern tree build_struct_comparison (tree_code, StructDeclaration *,
 extern tree build_array_struct_comparison (tree_code, StructDeclaration *,
 					   tree, tree, tree);
 extern tree build_struct_literal (tree, vec<constructor_elt, va_gc> *);
-extern tree build_class_instance (ClassReferenceExp *);
 extern tree component_ref (tree, tree);
 extern tree build_assign (tree_code, tree, tree);
 extern tree modify_expr (tree, tree);
@@ -563,6 +572,7 @@ extern tree get_frameinfo (FuncDeclaration *);
 extern tree get_framedecl (FuncDeclaration *, FuncDeclaration *);
 
 /* In d-convert.cc.  */
+extern bool decl_with_nonnull_addr_p (const_tree);
 extern tree d_truthvalue_conversion (tree);
 extern tree d_convert (tree, tree);
 extern tree convert_expr (tree, Type *, Type *);
@@ -587,6 +597,7 @@ extern tree d_signed_type (tree);
 extern void d_keep (tree);
 
 /* In decl.cc.  */
+const char *mangle_decl (Dsymbol *);
 extern tree mangle_internal_decl (Dsymbol *, const char *, const char *);
 extern void build_decl_tree (Dsymbol *);
 extern tree get_symbol_decl (Declaration *);
@@ -634,11 +645,12 @@ extern void d_finish_compilation (tree *, int);
 extern tree build_libcall (libcall_fn, Type *, int ...);
 
 /* In typeinfo.cc.  */
+extern bool have_typeinfo_p (ClassDeclaration *);
 extern tree layout_typeinfo (TypeInfoDeclaration *);
 extern tree layout_classinfo (ClassDeclaration *);
 extern tree get_typeinfo_decl (TypeInfoDeclaration *);
 extern tree get_classinfo_decl (ClassDeclaration *);
-extern tree build_typeinfo (Type *);
+extern tree build_typeinfo (const Loc &, Type *);
 extern void create_typeinfo (Type *, Module *);
 extern void create_tinfo_types (Module *);
 extern void layout_cpp_typeinfo (ClassDeclaration *);
@@ -666,4 +678,4 @@ extern void finish_aggregate_type (unsigned, unsigned, tree,
 				   UserAttributeDeclaration *);
 extern tree build_ctype (Type *);
 
-#endif  /* ! GCC_D_TREE_H */
+#endif  /* GCC_D_TREE_H  */

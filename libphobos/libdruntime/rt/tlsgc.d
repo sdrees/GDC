@@ -1,7 +1,7 @@
 /**
  *
  * Copyright: Copyright Digital Mars 2011 - 2012.
- * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
+ * License:   $(HTTP www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   Martin Nowak
  */
 
@@ -33,7 +33,7 @@ void* init() nothrow @nogc
 {
     auto data = cast(Data*).malloc(Data.sizeof);
     import core.exception;
-    if( data is null ) core.exception.onOutOfMemoryError();
+    if ( data is null ) core.exception.onOutOfMemoryError();
     *data = Data.init;
 
     // do module specific initialization

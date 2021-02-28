@@ -19,15 +19,17 @@
 # We define several parameters used by configure:
 #
 # language	- name of language as it would appear in $(LANGUAGES)
+# boot_language	- "yes" if we need to build this language in stage1
 # compilers	- value to add to $(COMPILERS)
 
 language="d"
 
-compilers="cc1d\$(exeext)"
+boot_language=yes
+compilers="d21\$(exeext)"
 
 target_libs="target-libphobos target-zlib target-libbacktrace"
 
-gtfiles="\$(srcdir)/d/d-tree.h \$(srcdir)/d/d-builtins.cc \$(srcdir)/d/d-lang.cc \$(srcdir)/d/typeinfo.cc"
+gtfiles="\$(srcdir)/d/d-tree.h \$(srcdir)/d/d-builtins.cc \$(srcdir)/d/d-lang.cc \$(srcdir)/d/modules.cc \$(srcdir)/d/typeinfo.cc"
 
 # Do not build by default.
 build_by_default="no"

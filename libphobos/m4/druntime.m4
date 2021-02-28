@@ -5,20 +5,34 @@
 
 # DRUNTIME_WERROR
 # ---------------
-# Add the --enable-werror option and create the
-# DRUNTIME_WERROR conditional
+# Check to see if -Werror is enabled.
 AC_DEFUN([DRUNTIME_WERROR],
 [
   AC_ARG_ENABLE(werror, [AS_HELP_STRING([--enable-werror],
-                                        [turns on -Werror @<:@default=yes@:>@])])
+                                        [turns on -Werror @<:@default=no@:>@])])
   WERROR_FLAG=""
-  if test "x$enable_werror" != "xno"; then
-      enable_werror="yes"
+  if test "x$enable_werror" = "xyes"; then
       WERROR_FLAG="-Werror"
   fi
-  AM_CONDITIONAL([DRUNTIME_WERROR], [test "$enable_werror" = "yes"])
 ])
 
+
+# DRUNTIME_CONFIGURE
+# ------------------
+# Substitute absolute paths for srcdir and builddir.
+AC_DEFUN([DRUNTIME_CONFIGURE],
+[
+  # These need to be absolute paths, yet at the same time need to
+  # canonicalize only relative paths, because then amd will not unmount
+  # drives. Thus the use of PWDCMD: set it to 'pawd' or 'amq -w' if using amd.
+  libphobos_builddir=`${PWDCMD-pwd}`
+  case $srcdir in
+    [\\/$]* | ?:[\\/]*) libphobos_srcdir=${srcdir} ;;
+    *) libphobos_srcdir=`cd "$srcdir" && ${PWDCMD-pwd} || echo "$srcdir"` ;;
+  esac
+  AC_SUBST(libphobos_builddir)
+  AC_SUBST(libphobos_srcdir)
+])
 
 # DRUNTIME_MULTILIB
 # -----------------
@@ -43,8 +57,10 @@ AC_DEFUN([DRUNTIME_INSTALL_DIRECTORIES],
   AC_REQUIRE([AC_PROG_GDC])
 
   AC_MSG_CHECKING([D GCC version])
-  d_gcc_ver=`$GDC -dumpversion`
-  AC_MSG_RESULT($d_gcc_ver)
+  gcc_version=`eval $get_gcc_base_ver $srcdir/../gcc/BASE-VER`
+  AC_MSG_RESULT($gcc_version)
+  AC_SUBST(gcc_version)
+
   AC_ARG_WITH([cross-host],
     AC_HELP_STRING([--with-cross-host=HOST],
                    [configuring with a cross compiler]))
@@ -78,7 +94,7 @@ AC_DEFUN([DRUNTIME_INSTALL_DIRECTORIES],
   AC_SUBST(toolexeclibdir)
 
   # Default case for install directory for D sources files.
-  gdc_include_dir='${libdir}/gcc/${target_alias}'/${d_gcc_ver}/include/d
+  gdc_include_dir='$(libdir)/gcc/${target_alias}/${gcc_version}/include/d'
   AC_SUBST(gdc_include_dir)
 ])
 

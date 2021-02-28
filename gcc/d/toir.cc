@@ -19,10 +19,12 @@ along with GCC; see the file COPYING3.  If not see
 #include "system.h"
 #include "coretypes.h"
 
-#include "dfrontend/aggregate.h"
-#include "dfrontend/declaration.h"
-#include "dfrontend/init.h"
-#include "dfrontend/statement.h"
+#include "dmd/aggregate.h"
+#include "dmd/declaration.h"
+#include "dmd/expression.h"
+#include "dmd/identifier.h"
+#include "dmd/init.h"
+#include "dmd/statement.h"
 
 #include "tree.h"
 #include "tree-iterator.h"
@@ -88,7 +90,7 @@ pop_label (Statement * const &s, d_label_entry *ent, tree block)
 /* The D front-end does not use the 'binding level' system for a symbol table,
    however it has been the goto structure for tracking code flow.
    Primarily it is only needed to get debugging information for local variables
-   and otherwise support the backend.  */
+   and otherwise support the back-end.  */
 
 void
 push_binding_level (level_kind kind)
@@ -128,7 +130,7 @@ pop_binding_level (void)
   else
     {
       /* Any uses of undefined labels, and any defined labels, now operate
-         under constraints of next binding contour.  */
+	 under constraints of next binding contour.  */
       if (d_function_chain && d_function_chain->labels)
 	{
 	  language_function *f = d_function_chain;
@@ -161,8 +163,8 @@ pop_stmt_list (void)
   tree t = d_function_chain->stmt_list->pop ();
 
   /* If the statement list is completely empty, just return it.  This is just
-     as good small as build_empty_stmt, with the advantage that statement
-     lists are merged when they appended to one another.  So using the
+     as good as build_empty_stmt, with the advantage that statement lists
+     are merged when they are appended to one another.  So using the
      STATEMENT_LIST avoids pathological buildup of EMPTY_STMT_P statements.  */
   if (TREE_SIDE_EFFECTS (t))
     {
@@ -229,6 +231,8 @@ add_stmt (tree t)
 
 class IRVisitor : public Visitor
 {
+  using Visitor::visit;
+
   FuncDeclaration *func_;
 
   /* Stack of labels which are targets for "break" and "continue",
@@ -250,14 +254,14 @@ public:
   void build_stmt (Statement *s)
   {
     location_t saved_location = input_location;
-    input_location = get_linemap (s->loc);
+    input_location = make_location_t (s->loc);
     s->accept (this);
     input_location = saved_location;
   }
 
   /* Start a new scope for a KIND statement.
      Each user-declared variable will have a binding contour that begins
-     where the variable is declared and ends at it's containing scope.  */
+     where the variable is declared and ends at its containing scope.  */
 
   void start_scope (level_kind kind)
   {
@@ -363,9 +367,9 @@ public:
       }
 
     if (ent->in_try_scope)
-      from->error ("cannot goto into try block");
+      error_at (make_location_t (from->loc), "cannot goto into try block");
     else if (ent->in_catch_scope)
-      from->error ("cannot goto into catch block");
+      error_at (make_location_t (from->loc), "cannot goto into catch block");
   }
 
   /* Check that a previously seen jump to a newly defined label is valid.
@@ -381,21 +385,26 @@ public:
 
 	if (b->kind == level_try || b->kind == level_catch)
 	  {
+	    location_t location;
+
 	    if (s->isLabelStatement ())
 	      {
+		location = make_location_t (fwdref->statement->loc);
 		if (b->kind == level_try)
-		  fwdref->statement->error ("cannot goto into try block");
+		  error_at (location, "cannot goto into try block");
 		else
-		  fwdref->statement->error ("cannot goto into catch block");
+		  error_at (location, "cannot goto into catch block");
 	      }
 	    else if (s->isCaseStatement ())
 	      {
-		s->error ("case cannot be in different "
+		location = make_location_t (s->loc);
+		error_at (location, "case cannot be in different "
 			  "try block level from switch");
 	      }
 	    else if (s->isDefaultStatement ())
 	      {
-		s->error ("default cannot be in different "
+		location = make_location_t (s->loc);
+		error_at (location, "default cannot be in different "
 			  "try block level from switch");
 	      }
 	    else
@@ -429,7 +438,7 @@ public:
     else
       {
 	tree name = ident ? get_identifier (ident->toChars ()) : NULL_TREE;
-	tree decl = build_decl (get_linemap (s->loc), LABEL_DECL,
+	tree decl = build_decl (make_location_t (s->loc), LABEL_DECL,
 				name, void_type_node);
 	DECL_CONTEXT (decl) = current_function_decl;
 	DECL_MODE (decl) = VOIDmode;
@@ -463,7 +472,7 @@ public:
 	TREE_VEC_ELT (vec, bc_break) = ent->label;
 
 	/* Build the continue label.  */
-	tree label = build_decl (get_linemap (s->loc), LABEL_DECL,
+	tree label = build_decl (make_location_t (s->loc), LABEL_DECL,
 				 NULL_TREE, void_type_node);
 	DECL_CONTEXT (label) = current_function_decl;
 	DECL_MODE (label) = VOIDmode;
@@ -525,7 +534,7 @@ public:
   }
 
   /* The frontend lowers `scope (exit/failure/success)' statements as
-     try/catch/finally. At this point, this statement is just an empty
+     try/catch/finally.  At this point, this statement is just an empty
      placeholder.  Maybe the frontend shouldn't leak these.  */
 
   void visit (OnScopeStatement *)
@@ -757,72 +766,12 @@ public:
     tree condition = build_expr_dtor (s->condition);
     Type *condtype = s->condition->type->toBasetype ();
 
-    /* A switch statement on a string gets turned into a library call,
-       which does a binary lookup on list of string cases.  */
-    if (s->condition->type->isString ())
+    /* A switch statement on a string gets turned into a library call.
+       It is not lowered during codegen.  */
+    if (!condtype->isscalar ())
       {
-	Type *etype = condtype->nextOf ()->toBasetype ();
-	libcall_fn libcall;
-
-	switch (etype->ty)
-	  {
-	  case Tchar:
-	    libcall = LIBCALL_SWITCH_STRING;
-	    break;
-
-	  case Twchar:
-	    libcall = LIBCALL_SWITCH_USTRING;
-	    break;
-
-	  case Tdchar:
-	    libcall = LIBCALL_SWITCH_DSTRING;
-	    break;
-
-	  default:
-	    ::error ("switch statement value must be an array of "
-		     "some character type, not %s", etype->toChars ());
-	    gcc_unreachable ();
-	  }
-
-	/* Apparently the backend is supposed to sort and set the indexes
-	   on the case array, have to change them to be usable.  */
-	Type *satype = condtype->sarrayOf (s->cases->dim);
-	vec<constructor_elt, va_gc> *elms = NULL;
-
-	s->cases->sort ();
-
-	for (size_t i = 0; i < s->cases->dim; i++)
-	  {
-	    CaseStatement *cs = (*s->cases)[i];
-	    cs->index = i;
-
-	    if (cs->exp->op != TOKstring)
-	      s->error ("case '%s' is not a string", cs->exp->toChars ());
-	    else
-	      {
-		tree exp = build_expr (cs->exp, true);
-		CONSTRUCTOR_APPEND_ELT (elms, size_int (i), exp);
-	      }
-	  }
-
-	/* Build static declaration to reference constructor.  */
-	tree ctor = build_constructor (build_ctype (satype), elms);
-	tree decl = build_artificial_decl (TREE_TYPE (ctor), ctor);
-	TREE_READONLY (decl) = 1;
-	d_pushdecl (decl);
-	rest_of_decl_compilation (decl, 1, 0);
-
-	/* Pass it as a dynamic array.  */
-	decl = d_array_value (build_ctype (condtype->arrayOf ()),
-			      size_int (s->cases->dim),
-			      build_address (decl));
-
-	condition = build_libcall (libcall, Type::tint32, 2, decl, condition);
-      }
-    else if (!condtype->isscalar ())
-      {
-	::error ("cannot handle switch condition of type %s",
-		 condtype->toChars ());
+	error ("cannot handle switch condition of type %s",
+	       condtype->toChars ());
 	gcc_unreachable ();
       }
 
@@ -965,7 +914,10 @@ public:
 
   void visit (SwitchErrorStatement *s)
   {
-    add_stmt (d_assert_call (s->loc, LIBCALL_SWITCH_ERROR));
+    /* A throw SwitchError statement gets turned into a library call.
+       The call is wrapped in the enclosed expression.  */
+    gcc_assert (s->exp != NULL);
+    add_stmt (build_expr (s->exp));
   }
 
   /* A return statement exits the current function and supplies its return
@@ -984,7 +936,8 @@ public:
     Type *type = this->func_->tintro != NULL
       ? this->func_->tintro->nextOf () : tf->nextOf ();
 
-    if (this->func_->isMain () && type->toBasetype ()->ty == Tvoid)
+    if ((this->func_->isMain () || this->func_->isCMain ())
+	&& type->toBasetype ()->ty == Tvoid)
       type = Type::tint32;
 
     if (this->func_->nrvo_can && this->func_->nrvo_var)
@@ -997,7 +950,7 @@ public:
       }
     else
       {
-	/* Convert for initialising the DECL_RESULT.  */
+	/* Convert for initializing the DECL_RESULT.  */
 	tree expr = build_return_dtor (s->exp, type, tf);
 	add_stmt (expr);
       }
@@ -1102,7 +1055,7 @@ public:
 
   /* Implements 'throw Object'.  Frontend already checks that the object
      thrown is a class type, but does not check if it is derived from
-     Object.  Foreign objects are not currently supported in runtime.  */
+     Object.  Foreign objects are not currently supported at run-time.  */
 
   void visit (ThrowStatement *s)
   {
@@ -1110,21 +1063,21 @@ public:
     InterfaceDeclaration *id = cd->isInterfaceDeclaration ();
     tree arg = build_expr_dtor (s->exp);
 
-    if (!flag_exceptions)
+    if (!global.params.useExceptions)
       {
 	static int warned = 0;
 	if (!warned)
 	  {
-	    s->error ("exception handling disabled, "
+	    error_at (make_location_t (s->loc), "exception handling disabled, "
 		      "use -fexceptions to enable");
 	    warned = 1;
 	  }
       }
 
-    if (cd->cpp || (id != NULL && id->cpp))
-      s->error ("cannot throw C++ classes");
+    if (cd->isCPPclass () || (id != NULL && id->isCPPclass ()))
+      error_at (make_location_t (s->loc), "cannot throw C++ classes");
     else if (cd->com || (id != NULL && id->com))
-      s->error ("cannot throw COM objects");
+      error_at (make_location_t (s->loc), "cannot throw COM objects");
     else
       arg = build_nop (build_ctype (get_object_type ()), arg);
 
@@ -1166,7 +1119,7 @@ public:
 	    Type *tcatch = vcatch->type->toBasetype ();
 	    ClassDeclaration *cd = tcatch->isClassHandle ();
 
-	    libcall_fn libcall = (cd->cpp) ? LIBCALL_CXA_BEGIN_CATCH
+	    libcall_fn libcall = (cd->isCPPclass ()) ? LIBCALL_CXA_BEGIN_CATCH
 	      : LIBCALL_BEGIN_CATCH;
 	    object = build_libcall (libcall, vcatch->type, 1, ehptr);
 
@@ -1192,7 +1145,7 @@ public:
 
 	    /* Need to wrap C++ handlers in a try/finally block to signal
 	       the end catch callback.  */
-	    if (cd->cpp)
+	    if (cd->isCPPclass ())
 	      {
 		tree endcatch = build_libcall (LIBCALL_CXA_END_CATCH,
 					       Type::tvoid, 0);
@@ -1207,14 +1160,14 @@ public:
 
     tree catches = pop_stmt_list ();
 
-    /* Backend expects all catches in a TRY_CATCH_EXPR to be enclosed in a
-       statement list, however pop_stmt_list may optimise away the list
+    /* Back-end expects all catches in a TRY_CATCH_EXPR to be enclosed in a
+       statement list, however pop_stmt_list may optimize away the list
        if there is only a single catch to push.  */
     if (TREE_CODE (catches) != STATEMENT_LIST)
       {
-        tree stmt_list = alloc_stmt_list ();
-        append_to_statement_list_force (catches, &stmt_list);
-        catches = stmt_list;
+	tree stmt_list = alloc_stmt_list ();
+	append_to_statement_list_force (catches, &stmt_list);
+	catches = stmt_list;
       }
 
     add_stmt (build2 (TRY_CATCH_EXPR, void_type_node, trybody, catches));
@@ -1251,9 +1204,9 @@ public:
     gcc_unreachable ();
   }
 
-  /* D Inline Assembler is not implemented, as would require a writing
+  /* D Inline Assembler is not implemented, as it would require writing
      an assembly parser for each supported target.  Instead we leverage
-     GCC extended assembler using the ExtAsmStatement class.  */
+     GCC extended assembler using the GccAsmStatement class.  */
 
   void visit (AsmStatement *)
   {
@@ -1263,7 +1216,7 @@ public:
   /* Build a GCC extended assembler expression, whose components are
      an INSN string, some OUTPUTS, some INPUTS, and some CLOBBERS.  */
 
-  void visit (ExtAsmStatement *s)
+  void visit (GccAsmStatement *s)
   {
     StringExp *insn = (StringExp *)s->insn;
     tree outputs = NULL_TREE;
@@ -1316,7 +1269,7 @@ public:
       }
 
     /* Collect all goto labels, these should have been already checked
-       by the front-end, so pass down the label symbol to the backend.  */
+       by the front-end, so pass down the label symbol to the back-end.  */
     if (s->labels)
       {
 	for (size_t i = 0; i < s->labels->dim; i++)
@@ -1394,7 +1347,7 @@ public:
 
     tree exp = build5 (ASM_EXPR, void_type_node, string,
 		       outputs, inputs, clobbers, labels);
-    SET_EXPR_LOCATION (exp, get_linemap (s->loc));
+    SET_EXPR_LOCATION (exp, make_location_t (s->loc));
 
     /* If the extended syntax was not used, mark the ASM_EXPR.  */
     if (s->args == NULL && s->clobbers == NULL)
@@ -1431,7 +1384,7 @@ build_function_body (FuncDeclaration *fd)
 {
   IRVisitor v = IRVisitor (fd);
   location_t saved_location = input_location;
-  input_location = get_linemap (fd->loc);
+  input_location = make_location_t (fd->loc);
   v.build_stmt (fd->fbody);
   input_location = saved_location;
 }

@@ -2,15 +2,15 @@
 
 /**
  * Read and write memory mapped files.
- * Copyright: Copyright Digital Mars 2004 - 2009.
+ * Copyright: Copyright The D Language Foundation 2004 - 2009.
  * License:   $(HTTP www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   $(HTTP digitalmars.com, Walter Bright),
  *            Matthew Wilson
- * Source:    $(PHOBOSSRC std/_mmfile.d)
+ * Source:    $(PHOBOSSRC std/mmfile.d)
  *
  * $(SCRIPT inhibitQuickIndex = 1;)
  */
-/*          Copyright Digital Mars 2004 - 2009.
+/*          Copyright The D Language Foundation 2004 - 2009.
  * Distributed under the Boost Software License, Version 1.0.
  *    (See accompanying file LICENSE_1_0.txt or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
@@ -74,7 +74,7 @@ class MmFile
         this(filename, Mode.read, 0, null);
     }
 
-    version(linux) this(File file, Mode mode = Mode.read, ulong size = 0,
+    version (linux) this(File file, Mode mode = Mode.read, ulong size = 0,
             void* address = null, size_t window = 0)
     {
         // Save a copy of the File to make sure the fd stays open.
@@ -82,13 +82,13 @@ class MmFile
         this(file.fileno, mode, size, address, window);
     }
 
-    version(linux) private this(int fildes, Mode mode, ulong size,
+    version (linux) private this(int fildes, Mode mode, ulong size,
             void* address, size_t window)
     {
         int oflag;
         int fmode;
 
-        switch (mode)
+        final switch (mode)
         {
         case Mode.read:
             flags = MAP_SHARED;
@@ -118,9 +118,6 @@ class MmFile
             oflag = O_RDWR;
             fmode = 0;
             break;
-
-        default:
-            assert(0);
         }
 
         fd = fildes;
@@ -184,7 +181,7 @@ class MmFile
             uint dwCreationDisposition;
             uint flProtect;
 
-            switch (mode)
+            final switch (mode)
             {
             case Mode.read:
                 dwDesiredAccess2 = GENERIC_READ;
@@ -218,9 +215,6 @@ class MmFile
                 flProtect = PAGE_WRITECOPY;
                 dwDesiredAccess = FILE_MAP_COPY;
                 break;
-
-            default:
-                assert(0);
             }
 
             if (filename != null)
@@ -281,7 +275,7 @@ class MmFile
             int oflag;
             int fmode;
 
-            switch (mode)
+            final switch (mode)
             {
             case Mode.read:
                 flags = MAP_SHARED;
@@ -311,9 +305,6 @@ class MmFile
                 oflag = O_RDWR;
                 fmode = 0;
                 break;
-
-            default:
-                assert(0);
             }
 
             if (filename.length)
@@ -343,7 +334,7 @@ class MmFile
             else
             {
                 fd = -1;
-                version(CRuntime_Glibc) import core.sys.linux.sys.mman : MAP_ANON;
+                version (CRuntime_Glibc) import core.sys.linux.sys.mman : MAP_ANON;
                 flags |= MAP_ANON;
             }
             this.size = size;
@@ -440,6 +431,11 @@ class MmFile
     }
 
     /**
+     * Forwards `length`.
+     */
+    alias opDollar = length;
+
+    /**
      * Read-only property returning the file mode.
      */
     Mode mode()
@@ -504,7 +500,7 @@ class MmFile
     private void unmap()
     {
         debug (MMFILE) printf("MmFile.unmap()\n");
-        version(Windows)
+        version (Windows)
         {
             wenforce(!data.ptr || UnmapViewOfFile(data.ptr) != FALSE, "UnmapViewOfFile");
         }
@@ -523,7 +519,7 @@ class MmFile
         void* p;
         if (start+len > size)
             len = cast(size_t)(size-start);
-        version(Windows)
+        version (Windows)
         {
             uint hi = cast(uint)(start >> 32);
             p = MapViewOfFileEx(hFileMap, dwDesiredAccess, hi, cast(uint) start, len, address);
@@ -640,7 +636,7 @@ private:
 
     const size_t K = 1024;
     size_t win = 64*K; // assume the page size is 64K
-    version(Windows)
+    version (Windows)
     {
         /+ these aren't defined in core.sys.windows.windows so let's use default
          SYSTEM_INFO sysinfo;
@@ -678,7 +674,7 @@ private:
     auto test = new MmFile(null, MmFile.Mode.readWriteNew, 1024*1024, null);
 }
 
-version(linux)
+version (linux)
 @system unittest // Issue 14868
 {
     import std.file : deleteme;
@@ -718,4 +714,10 @@ version(linux)
     auto fn = std.file.deleteme ~ "-testing.txt";
     scope(exit) std.file.remove(fn);
     verifyThrown(scoped!MmFile(fn, MmFile.Mode.readWrite, 0, null));
+}
+
+@system unittest
+{
+    MmFile shar = new MmFile(null, MmFile.Mode.readWrite, 10, null, 0);
+    void[] output = shar[0 .. $];
 }

@@ -2,7 +2,7 @@
  * A sorted array to quickly lookup pools.
  *
  * Copyright: Copyright Digital Mars 2001 -.
- * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
+ * License:   $(HTTP www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   Walter Bright, David Friedman, Sean Kelly, Martin Nowak
  */
 module gc.pooltable;
@@ -55,14 +55,14 @@ nothrow:
 
     ref inout(Pool*) opIndex(size_t idx) inout pure
     in { assert(idx < length); }
-    body
+    do
     {
         return pools[idx];
     }
 
     inout(Pool*)[] opSlice(size_t a, size_t b) inout pure
     in { assert(a <= length && b <= length); }
-    body
+    do
     {
         return pools[a .. b];
     }
@@ -180,12 +180,12 @@ unittest
 
     void reset()
     {
-        foreach(ref pool; pooltable[0 .. $])
+        foreach (ref pool; pooltable[0 .. $])
             pool.freepages = pool.npages;
         pooltable.minimize();
         assert(pooltable.length == 0);
 
-        foreach(i; 0 .. NPOOLS)
+        foreach (i; 0 .. NPOOLS)
         {
             auto pool = cast(MockPool*)cstdlib.malloc(MockPool.sizeof);
             *pool = MockPool.init;
@@ -195,7 +195,7 @@ unittest
 
     void usePools()
     {
-        foreach(pool; pooltable[0 .. $])
+        foreach (pool; pooltable[0 .. $])
         {
             pool.npages = NPAGES;
             pool.freepages = NPAGES / 2;
@@ -242,7 +242,7 @@ unittest
     {
         // fill with fake addresses
         size_t i;
-        foreach(pool; pooltable[0 .. NPOOLS])
+        foreach (pool; pooltable[0 .. NPOOLS])
         {
             pool.baseAddr = cast(byte*)(i++ * NPAGES * PAGESIZE);
             pool.topAddr = pool.baseAddr + NPAGES * PAGESIZE;
@@ -276,7 +276,7 @@ unittest
     assert(pooltable.maxAddr == pooltable[NPOOLS - 4].topAddr);
 
     // free all
-    foreach(pool; pooltable[0 .. $])
+    foreach (pool; pooltable[0 .. $])
         pool.freepages = NPAGES;
     freed = pooltable.minimize();
     assert(freed.length == NPOOLS - 3);

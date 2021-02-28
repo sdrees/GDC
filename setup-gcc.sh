@@ -47,7 +47,10 @@ elif grep -q -E '^7\.[0-9]+([^0-9]|$)' $d_gccsrc/gcc/BASE-VER; then
     gcc_ver=7
 elif grep -q -E '^8\.[0-9]+([^0-9]|$)' $d_gccsrc/gcc/BASE-VER; then
     gcc_ver=8
-else echo "cannot get gcc version"
+elif grep -q -E '^9\.[0-9]+([^0-9]|$)' $d_gccsrc/gcc/BASE-VER; then
+    gcc_ver=9
+else
+    echo "cannot get gcc version"
     exit 1
 fi
 echo "found gcc version $gcc_ver"
@@ -128,7 +131,9 @@ if test $d_quilt_patch -eq 1; then
 
   cat > gcc/d/patches/series << EOF
 patch-toplev-${gcc_patch_key}
+patch-toplev-ddmd-${gcc_patch_key}
 patch-gcc-${gcc_patch_key}
+patch-gcc-ddmd-${gcc_patch_key}
 patch-targetdm-${gcc_patch_key}
 EOF
 
@@ -138,7 +143,9 @@ EOF
 else
   cd $d_gccsrc && \
     patch -p1 -i gcc/d/patches/patch-toplev-${gcc_patch_key} && \
+    patch -p1 -i gcc/d/patches/patch-toplev-ddmd-${gcc_patch_key} && \
     patch -p1 -i gcc/d/patches/patch-gcc-${gcc_patch_key} && \
+    patch -p1 -i gcc/d/patches/patch-gcc-ddmd-${gcc_patch_key} && \
     patch -p1 -i gcc/d/patches/patch-targetdm-${gcc_patch_key} && \
     cd $top || exit 1
 fi

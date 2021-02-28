@@ -10,19 +10,19 @@ GCC_VERSION=$(cat gcc.version)
 
 if [ "${GCC_VERSION:0:5}" = "gcc-9" ]; then
     GCC_TARBALL="snapshots/${GCC_VERSION:4}/${GCC_VERSION}.tar.xz"
-    GCC_PREREQS="gmp-6.1.0.tar.bz2 mpfr-3.1.4.tar.bz2 mpc-1.0.3.tar.gz isl-0.16.1.tar.bz2"
+    GCC_PREREQS="gmp-6.1.0.tar.bz2 mpfr-3.1.4.tar.bz2 mpc-1.0.3.tar.gz isl-0.18.tar.bz2"
     PATCH_VERSION="9"
     HOST_PACKAGE="7"
 elif [ "${GCC_VERSION:0:5}" = "gcc-8" ]; then
     GCC_TARBALL="releases/${GCC_VERSION}/${GCC_VERSION}.tar.xz"
-    GCC_PREREQS="gmp-6.1.0.tar.bz2 mpfr-3.1.4.tar.bz2 mpc-1.0.3.tar.gz isl-0.16.1.tar.bz2"
+    GCC_PREREQS="gmp-6.1.0.tar.bz2 mpfr-3.1.4.tar.bz2 mpc-1.0.3.tar.gz isl-0.18.tar.bz2"
     PATCH_VERSION="8"
     HOST_PACKAGE="7"
 elif [ "${GCC_VERSION:0:5}" = "gcc-7" ]; then
     GCC_TARBALL="releases/${GCC_VERSION}/${GCC_VERSION}.tar.xz"
     GCC_PREREQS="gmp-6.1.0.tar.bz2 mpfr-3.1.4.tar.bz2 mpc-1.0.3.tar.gz isl-0.16.1.tar.bz2"
     PATCH_VERSION="7"
-    HOST_PACKAGE="5"
+    HOST_PACKAGE="7"
 elif [ "${GCC_VERSION:0:5}" = "gcc-6" ]; then
     GCC_TARBALL="releases/${GCC_VERSION}/${GCC_VERSION}.tar.xz"
     GCC_PREREQS="gmp-4.3.2.tar.bz2 mpfr-2.4.2.tar.bz2 mpc-0.8.1.tar.gz isl-0.15.tar.bz2"
@@ -71,7 +71,7 @@ setup() {
     tar --strip-components=1 -xf ${SEMAPHORE_CACHE_DIR}/${GCC_TARBALL}
 
     ## Apply GDC patches to GCC.
-    for PATCH in toplev gcc targetdm; do
+    for PATCH in toplev toplev-ddmd gcc gcc-ddmd targetdm; do
         patch -p1 -i ./gcc/d/patches/patch-${PATCH}-${PATCH_VERSION}.patch || exit 1
     done
 
@@ -119,10 +119,13 @@ alltests() {
 testsuite() {
     ## Run just the compiler testsuite.
     cd ${SEMAPHORE_PROJECT_DIR}/build
+
+    make check-gcc RUNTESTFLAGS="help.exp"
     make -j$(nproc) check-gcc-d
 
     ## Print out summaries of testsuite run after finishing.
     # Just omit testsuite PASSes from the summary file.
+    grep -v "^PASS" ${SEMAPHORE_PROJECT_DIR}/build/gcc/testsuite/gcc/gcc.sum ||:
     grep -v "^PASS" ${SEMAPHORE_PROJECT_DIR}/build/gcc/testsuite/gdc*/gdc.sum ||:
 
     # Test for any failures and return false if any.

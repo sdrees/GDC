@@ -1,5 +1,5 @@
 # Process this file with autoconf to produce a configure script.
-# Copyright (C) 2006-2017 Free Software Foundation, Inc.
+# Copyright (C) 2006-2018 Free Software Foundation, Inc.
 #
 # GCC is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -113,7 +113,11 @@ AC_SUBST(phobos_compiler_shared_flag)
 lt_prog_compiler_pic_D="$phobos_compiler_shared_flag"
 pic_mode='default'
 
+# Determine what GCC version number to use in filesystem paths.
+GCC_BASE_VER
+
 # libphobos/libdruntime specific options and feature detection
+DRUNTIME_CONFIGURE
 DRUNTIME_MULTILIB
 DRUNTIME_WERROR
 DRUNTIME_GC
@@ -144,8 +148,8 @@ SPEC_PHOBOS_DEPS="$LIBS"
 AC_SUBST(SPEC_PHOBOS_DEPS)
 
 # Libdruntime / phobos soname version
-DRUNTIME_SOVERSION="76:2:0"
-PHOBOS_SOVERSION="76:2:0"
+DRUNTIME_SOVERSION="83:0:0"
+PHOBOS_SOVERSION="83:0:0"
 AC_SUBST([DRUNTIME_SOVERSION])
 AC_SUBST([PHOBOS_SOVERSION])
 
@@ -164,35 +168,45 @@ AC_SUBST(GDCFLAGSX)
 AC_CHECK_HEADER(stdio.h,:,
   [AC_MSG_ERROR([cannot find stdio.h.])])
 
-# Create all directories ready to start building.
-d_subdirs=`( cd $srcdir && find . -type d ) | sed -e 's/^.\///'`
-d_subdirs="$d_subdirs"
-for i in $d_subdirs; do
-    mkdir -p $i;
-done
-AC_SUBST(srcdir)
+AC_CONFIG_FILES(Makefile src/Makefile libdruntime/Makefile testsuite/Makefile)
 
-# Multilibs need MULTISUBDIR defined correctly in certain makefiles so
-# that multilib installs will end up installed in the correct place.
-# The testsuite needs it for multilib-aware ABI baseline files.
-# To work around this not being passed down from config-ml.in ->
-# srcdir/Makefile.am -> srcdir/{src,libsupc++,...}/Makefile.am, manually
-# append it here.  Only modify Makefiles that have just been created.
-#
-# Also, get rid of this simulated-VPATH thing that automake does.
-AC_CONFIG_FILES(AC_FOREACH([DIR], src libdruntime testsuite, [DIR/Makefile ]),
-  [cat > vpsed$$ << \_EOF
-s!`test -f '$<' || echo '$(srcdir)/'`!!
+AC_CONFIG_FILES(libdruntime/gcc/config.d libdruntime/gcc/libbacktrace.d)
+AC_CONFIG_FILES(src/libgphobos.spec)
+AC_CONFIG_FILES([testsuite/testsuite_flags],[chmod +x testsuite/testsuite_flags])
+
+# We need multilib support, but only if configuring for the target.
+AC_CONFIG_COMMANDS([default],
+[if test -n "$CONFIG_FILES"; then
+   if test -n "${with_target_subdir}"; then
+     # Multilibs need MULTISUBDIR defined correctly in certain makefiles so
+     # that multilib installs will end up installed in the correct place.
+     # The testsuite needs it for multilib-aware ABI baseline files.
+     # To work around this not being passed down from config-ml.in ->
+     # srcdir/Makefile.am -> srcdir/{src,libdruntime,...}/Makefile.am, manually
+     # append it here.  Only modify Makefiles that have just been created.
+     #
+     # Also, get rid of this simulated-VPATH thing that automake does.
+     cat > vpsed << \_EOF
+  s!`test -f '$<' || echo '$(srcdir)/'`!!
 _EOF
-   sed -f vpsed$$ $ac_file > tmp$$
-   mv tmp$$ $ac_file
-   rm vpsed$$
-   echo 'MULTISUBDIR =' >> $ac_file
-   ml_norecursion=yes
-   . ${multi_basedir}/config-ml.in
-   AS_UNSET([ml_norecursion])
+     for i in $SUBDIRS; do
+      case $CONFIG_FILES in
+       *${i}/Makefile*)
+	 #echo "Adding MULTISUBDIR to $i/Makefile"
+	 sed -f vpsed $i/Makefile > tmp
+	 grep '^MULTISUBDIR =' Makefile >> tmp
+	 mv tmp $i/Makefile
+	 ;;
+      esac
+     done
+     rm vpsed
+   fi
+ fi
+],
+[
+# Variables needed in config.status (file generation) which aren't already
+# passed by autoconf.
+SUBDIRS="$SUBDIRS"
 ])
 
-AC_CONFIG_FILES([Makefile libdruntime/gcc/config.d libdruntime/gcc/libbacktrace.d
-  src/libgphobos.spec])
 AC_OUTPUT

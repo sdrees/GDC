@@ -1,5 +1,6 @@
 // PERMUTE_ARGS:
-// REQUIRED_ARGS: -c -Icompilable/extra-files
+// REQUIRED_ARGS: -Icompilable/extra-files
+// EXTRA_FILES: extra-files/pkgDIP37/datetime/package.d extra-files/pkgDIP37/datetime/common.d extra-files/pkgDIP37/test17629/package.di extra-files/pkgDIP37/test17629/common.di
 
 void test1()
 {
@@ -30,7 +31,6 @@ void test7()
     static import pkgDIP37.datetime;
     static assert(!__traits(compiles, def()));
     pkgDIP37.datetime.def();
-    pkgDIP37.datetime.common.def();
 }
 
 // https://issues.dlang.org/show_bug.cgi?id=17629

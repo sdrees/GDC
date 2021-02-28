@@ -6,16 +6,15 @@
  *
  * License:   $(HTTP www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   Kenji Hara
- * Source:    $(PHOBOSSRC std/internal/windows/_advapi32.d)
+ * Source:    $(PHOBOSSRC std/internal/windows/advapi32.d)
  */
 module std.internal.windows.advapi32;
 
-version(Windows):
+version (Windows):
 
 import core.sys.windows.windows;
 
-version(GNU) {}
-else pragma(lib, "advapi32.lib");
+pragma(lib, "advapi32.lib");
 
 immutable bool isWow64;
 

@@ -1,12 +1,12 @@
 // { dg-options "-I $srcdir/gdc.dg -I $srcdir/gdc.dg/imports" }
 // { dg-additional-sources "imports/gdc27.d imports/gdc231.d" }
+// { dg-do compile }
 
 import core.simd;
 import gcc.attribute;
 
 /******************************************/
-
-// Bug 27
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=27
 
 import imports.gdc27;
 
@@ -21,8 +21,7 @@ abstract class C_B : C_A, I_B
 }
 
 /******************************************/
-
-// Bug 108
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=108
 
 @attribute("forceinline")
 void forceinline108()
@@ -40,8 +39,7 @@ void flatten108()
 }
 
 /******************************************/
-
-// Bug 170
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=170
 
 import imports.gdc170;
 
@@ -62,8 +60,7 @@ void test170()
 }
 
 /******************************************/
-
-// Bug 212
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=212
 
 template hasElaborateAssign212(S)
 {
@@ -112,8 +109,7 @@ class TaskPool212
 }
 
 /******************************************/
-
-// Bug 213
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=213
 
 struct S213
 {
@@ -128,8 +124,7 @@ void test213()
 }
 
 /******************************************/
-
-// Bug 218
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=218
 
 struct S218a
 {
@@ -171,8 +166,7 @@ static this()
 }
 
 /******************************************/
-
-// Bug 223
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=223
 
 struct S223
 {
@@ -217,8 +211,7 @@ bool test223()
 }
 
 /******************************************/
-
-// Bug 231
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=231
 
 import imports.gdc231;
 
@@ -231,8 +224,7 @@ class Range231 : Widget231
 }
 
 /******************************************/
-
-// Bug 239
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=239
 
 import imports.gdc239;
 
@@ -242,8 +234,7 @@ class C239
 }
 
 /******************************************/
-
-// Bug 240
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=240
 
 interface I204
 {
@@ -256,15 +247,13 @@ class C204 : I204
 }
 
 /******************************************/
-
-// Bug 241
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=241
 
 import imports.gdc241a;
 import imports.gdc241b : S241, C241, E241, N241;
 
 /******************************************/
-
-// Bug 242
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=242
 
 struct S242a
 {
@@ -289,15 +278,13 @@ void test242b()
 }
 
 /******************************************/
-
-// Bug 251
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=251
 
 import imports.gdc251a;
 import imports.gdc251b : C251;
 
 /******************************************/
-
-// Bug 253
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=253
 
 import imports.gdc253;
 
@@ -307,8 +294,7 @@ class C253 : C253a
 }
 
 /******************************************/
-
-// Bug 255
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=255
 
 class C255
 {
@@ -392,14 +378,12 @@ class C255b
 }
 
 /******************************************/
-
-// Bug 256
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=256
 
 import imports.gdcpkg256 : gdc256;
 
 /******************************************/
-
-// Bug 261
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=261
 
 void test261()
 {
@@ -419,8 +403,7 @@ void test261()
 }
 
 /******************************************/
-
-// Bug 280
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=280
 
 struct RBNode280
 {
@@ -451,8 +434,7 @@ class RedBlackTree280
 __gshared s = new RedBlackTree280('h');
 
 /******************************************/
-
-// Bug 284
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=284
 
 alias v284 = __vector(int[2]);
 

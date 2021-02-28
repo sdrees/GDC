@@ -1,5 +1,7 @@
+// https://bugzilla.gdcproject.org/show_bug.cgi?id=254
 // { dg-options "-I $srcdir/gdc.dg" }
 // { dg-shouldfail "interface function is not implemented" }
+// { dg-do compile }
 
 import imports.gdc254a;
 
